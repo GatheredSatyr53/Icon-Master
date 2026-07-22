@@ -44,10 +44,12 @@ namespace IconMaster
     }
 
     // Flood-fills the contiguous region of same-coloured pixels with the current colour.
-    [default_interface]
+    // Draw fills the whole canvas region; FillBounded restricts it to a rectangle
+    // (used to keep the fill inside the current selection).
     runtimeclass Fill : ITool
     {
         Fill();
+        void FillBounded(DrawingContext context, Int32 x, Int32 y, Int32 left, Int32 top, Int32 right, Int32 bottom);
     }
 
     // Picks the colour under the pixel into the context's current colour.

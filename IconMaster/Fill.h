@@ -9,6 +9,8 @@ namespace winrt::IconMaster::implementation
         Fill() = default;
 
         void Draw(winrt::IconMaster::DrawingContext const& context, int32_t x, int32_t y);
+        void FillBounded(winrt::IconMaster::DrawingContext const& context, int32_t x, int32_t y,
+                         int32_t left, int32_t top, int32_t right, int32_t bottom);
     };
 }
 
