@@ -4,7 +4,8 @@
 #include "DrawingContext.g.cpp"
 #endif
 
-using namespace winrt::Windows::UI;
+// Note: the class has a member named `Color` (the current-colour property), which
+// shadows the type name inside member scope, so the type is spelled out in full here.
 
 namespace winrt::IconMaster::implementation
 {
@@ -15,16 +16,16 @@ namespace winrt::IconMaster::implementation
     {
     }
 
-    Color DrawingContext::GetPixel(int32_t x, int32_t y) const
+    winrt::Windows::UI::Color DrawingContext::GetPixel(int32_t x, int32_t y) const
     {
         if (!InBounds(x, y))
         {
-            return Color{ 0x00, 0x00, 0x00, 0x00 };
+            return winrt::Windows::UI::Color{ 0x00, 0x00, 0x00, 0x00 };
         }
 
         const size_t i = (static_cast<size_t>(y) * m_width + x) * 4;
         // Stored as BGRA.
-        return Color{
+        return winrt::Windows::UI::Color{
             m_pixels[i + 3], // A
             m_pixels[i + 2], // R
             m_pixels[i + 1], // G
@@ -32,7 +33,7 @@ namespace winrt::IconMaster::implementation
         };
     }
 
-    void DrawingContext::SetPixel(int32_t x, int32_t y, Color const& color)
+    void DrawingContext::SetPixel(int32_t x, int32_t y, winrt::Windows::UI::Color const& color)
     {
         if (!InBounds(x, y))
         {
@@ -46,7 +47,7 @@ namespace winrt::IconMaster::implementation
         m_pixels[i + 3] = color.A;
     }
 
-    void DrawingContext::Clear(Color const& color)
+    void DrawingContext::Clear(winrt::Windows::UI::Color const& color)
     {
         for (size_t i = 0; i < m_pixels.size(); i += 4)
         {
