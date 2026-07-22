@@ -38,6 +38,12 @@ namespace winrt::IconMaster::implementation
 {
     MainWindow::MainWindow()
     {
+        // Create the first document BEFORE InitializeComponent: loading the XAML
+        // raises events (e.g. the Pen RadioButton's Checked) that call doc(), so
+        // m_docs must already have an element.
+        m_docs.emplace_back();
+        m_active = 0;
+
         // Loads the XAML and creates the named elements. Must run before any is accessed.
         InitializeComponent();
 
@@ -47,7 +53,7 @@ namespace winrt::IconMaster::implementation
             appWindow.Resize(winrt::Windows::Graphics::SizeInt32{ 1200, 820 });
         }
 
-        m_context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
+        doc().context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
         m_pen = winrt::IconMaster::Pen();
         m_eraser = winrt::IconMaster::Eraser();
         m_fill = winrt::IconMaster::Fill();
@@ -61,6 +67,19 @@ namespace winrt::IconMaster::implementation
 
         // Sets the initial colour (also flows into the context via ColorChanged).
         ColorPickerControl().Color(winrt::Windows::UI::Color{ 0xFF, 0x00, 0x00, 0x00 });
+
+        // Tab for the initial document.
+        m_docCounter = 1;
+        doc().title = L"Icon 1";
+        m_updatingTabs = true;
+        {
+            auto item = winrt::Microsoft::UI::Xaml::Controls::TabViewItem();
+            item.Header(winrt::box_value(doc().title));
+            item.IsClosable(true);
+            Tabs().TabItems().Append(item);
+            Tabs().SelectedIndex(0);
+        }
+        m_updatingTabs = false;
 
         RebuildDisplay();
     }
@@ -97,7 +116,7 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OnToolSelected(IInspectable const& sender, RoutedEventArgs const&)
     {
-        if (m_context == nullptr)
+        if (doc().context == nullptr)
         {
             return;
         }
@@ -147,26 +166,26 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OnColorChanged(ColorPicker const&, ColorChangedEventArgs const& args)
     {
-        if (m_context == nullptr || m_suppressColorSync)
+        if (doc().context == nullptr || m_suppressColorSync)
         {
             return;
         }
-        m_context.Color(args.NewColor());
+        doc().context.Color(args.NewColor());
     }
 
     // ---- Zoom ---------------------------------------------------------------
 
-    void MainWindow::OnZoomIn(IInspectable const&, RoutedEventArgs const&) { SetZoom(m_zoom + 4); }
-    void MainWindow::OnZoomOut(IInspectable const&, RoutedEventArgs const&) { SetZoom(m_zoom - 4); }
+    void MainWindow::OnZoomIn(IInspectable const&, RoutedEventArgs const&) { SetZoom(doc().zoom + 4); }
+    void MainWindow::OnZoomOut(IInspectable const&, RoutedEventArgs const&) { SetZoom(doc().zoom - 4); }
 
     void MainWindow::SetZoom(int32_t zoom)
     {
         zoom = std::clamp(zoom, k_minZoom, k_maxZoom);
-        if (zoom == m_zoom && m_display != nullptr)
+        if (zoom == doc().zoom && m_display != nullptr)
         {
             return;
         }
-        m_zoom = zoom;
+        doc().zoom = zoom;
         RebuildDisplay();
     }
 
@@ -175,15 +194,15 @@ namespace winrt::IconMaster::implementation
     void MainWindow::PointerToPixelClamped(PointerRoutedEventArgs const& e, int32_t& lx, int32_t& ly)
     {
         auto pos = e.GetCurrentPoint(CanvasImage()).Position();
-        const int32_t x = static_cast<int32_t>(pos.X) / m_zoom;
-        const int32_t y = static_cast<int32_t>(pos.Y) / m_zoom;
-        lx = std::clamp(x, 0, m_context.PixelWidth() - 1);
-        ly = std::clamp(y, 0, m_context.PixelHeight() - 1);
+        const int32_t x = static_cast<int32_t>(pos.X) / doc().zoom;
+        const int32_t y = static_cast<int32_t>(pos.Y) / doc().zoom;
+        lx = std::clamp(x, 0, doc().context.PixelWidth() - 1);
+        ly = std::clamp(y, 0, doc().context.PixelHeight() - 1);
     }
 
     void MainWindow::OnCanvasPointerPressed(IInspectable const&, PointerRoutedEventArgs const& e)
     {
-        if (m_context == nullptr)
+        if (doc().context == nullptr)
         {
             return;
         }
@@ -263,7 +282,7 @@ namespace winrt::IconMaster::implementation
             PointerToPixelClamped(e, px, py);
             SetSelectionFromPoints(m_selAnchorX, m_selAnchorY, px, py);
             Render();
-            StatusText().Text(L"selection " + winrt::to_hstring(m_selW) + L" x " + winrt::to_hstring(m_selH));
+            StatusText().Text(L"selection " + winrt::to_hstring(doc().selW) + L" x " + winrt::to_hstring(doc().selH));
             return;
         }
 
@@ -286,9 +305,9 @@ namespace winrt::IconMaster::implementation
             PointerToPixelClamped(e, px, py);
             m_moveDX = px - m_moveAnchorX;
             m_moveDY = py - m_moveAnchorY;
-            StampFloating(m_selX + m_moveDX, m_selY + m_moveDY);
-            m_selX += m_moveDX;
-            m_selY += m_moveDY;
+            StampFloating(doc().selX + m_moveDX, doc().selY + m_moveDY);
+            doc().selX += m_moveDX;
+            doc().selY += m_moveDY;
             m_moving = false;
             m_moveDX = 0;
             m_moveDY = 0;
@@ -302,9 +321,9 @@ namespace winrt::IconMaster::implementation
         {
             m_selecting = false;
             // A click without a drag deselects.
-            if (m_selW <= 1 && m_selH <= 1)
+            if (doc().selW <= 1 && doc().selH <= 1)
             {
-                m_hasSelection = false;
+                doc().hasSelection = false;
             }
             CanvasImage().ReleasePointerCapture(e.Pointer());
             Render();
@@ -325,7 +344,7 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::DrawFromPointer(PointerRoutedEventArgs const& e)
     {
-        if (m_context == nullptr)
+        if (doc().context == nullptr)
         {
             return;
         }
@@ -345,9 +364,9 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
-        const int32_t lx = static_cast<int32_t>(pos.X) / m_zoom;
-        const int32_t ly = static_cast<int32_t>(pos.Y) / m_zoom;
-        if (lx < 0 || lx >= m_context.PixelWidth() || ly < 0 || ly >= m_context.PixelHeight())
+        const int32_t lx = static_cast<int32_t>(pos.X) / doc().zoom;
+        const int32_t ly = static_cast<int32_t>(pos.Y) / doc().zoom;
+        if (lx < 0 || lx >= doc().context.PixelWidth() || ly < 0 || ly >= doc().context.PixelHeight())
         {
             return;
         }
@@ -360,25 +379,25 @@ namespace winrt::IconMaster::implementation
             tool = m_eraser.as<winrt::IconMaster::ITool>();
         }
 
-        if (kind == ToolKind::Fill && m_hasSelection)
+        if (kind == ToolKind::Fill && doc().hasSelection)
         {
             // Fill is constrained to the selection rectangle.
             if (!InsideSelection(lx, ly))
             {
                 return;
             }
-            m_fill.FillBounded(m_context, lx, ly,
-                               m_selX, m_selY, m_selX + m_selW - 1, m_selY + m_selH - 1);
+            m_fill.FillBounded(doc().context, lx, ly,
+                               doc().selX, doc().selY, doc().selX + doc().selW - 1, doc().selY + doc().selH - 1);
         }
         else
         {
-            tool.Draw(m_context, lx, ly);
+            tool.Draw(doc().context, lx, ly);
         }
 
         if (kind == ToolKind::Eyedropper)
         {
             m_suppressColorSync = true;
-            ColorPickerControl().Color(m_context.Color());
+            ColorPickerControl().Color(doc().context.Color());
             m_suppressColorSync = false;
         }
         else
@@ -396,11 +415,11 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
-        const winrt::Windows::UI::Color color = m_context.Color();
+        const winrt::Windows::UI::Color color = doc().context.Color();
         auto points = m_currentShape.Rasterize(m_shapeStartX, m_shapeStartY, x1, y1);
         for (auto const& p : points)
         {
-            m_context.SetPixel(p.X, p.Y, color);
+            doc().context.SetPixel(p.X, p.Y, color);
         }
         Render();
     }
@@ -409,9 +428,9 @@ namespace winrt::IconMaster::implementation
 
     bool MainWindow::InsideSelection(int32_t px, int32_t py) const
     {
-        return m_hasSelection &&
-               px >= m_selX && px < m_selX + m_selW &&
-               py >= m_selY && py < m_selY + m_selH;
+        return doc().hasSelection &&
+               px >= doc().selX && px < doc().selX + doc().selW &&
+               py >= doc().selY && py < doc().selY + doc().selH;
     }
 
     void MainWindow::SetSelectionFromPoints(int32_t ax, int32_t ay, int32_t bx, int32_t by)
@@ -420,11 +439,11 @@ namespace winrt::IconMaster::implementation
         const int32_t top = std::min(ay, by);
         const int32_t right = std::max(ax, bx);
         const int32_t bottom = std::max(ay, by);
-        m_selX = left;
-        m_selY = top;
-        m_selW = right - left + 1;
-        m_selH = bottom - top + 1;
-        m_hasSelection = true;
+        doc().selX = left;
+        doc().selY = top;
+        doc().selW = right - left + 1;
+        doc().selH = bottom - top + 1;
+        doc().hasSelection = true;
     }
 
     void MainWindow::ClearRegion(int32_t x, int32_t y, int32_t w, int32_t h)
@@ -433,24 +452,24 @@ namespace winrt::IconMaster::implementation
         {
             for (int32_t i = 0; i < w; ++i)
             {
-                m_context.SetPixel(x + i, y + j, kTransparent);
+                doc().context.SetPixel(x + i, y + j, kTransparent);
             }
         }
     }
 
     void MainWindow::LiftSelection()
     {
-        m_floatW = m_selW;
-        m_floatH = m_selH;
+        m_floatW = doc().selW;
+        m_floatH = doc().selH;
         m_floatPixels.assign(static_cast<size_t>(m_floatW) * m_floatH, kTransparent);
         for (int32_t j = 0; j < m_floatH; ++j)
         {
             for (int32_t i = 0; i < m_floatW; ++i)
             {
-                m_floatPixels[static_cast<size_t>(j) * m_floatW + i] = m_context.GetPixel(m_selX + i, m_selY + j);
+                m_floatPixels[static_cast<size_t>(j) * m_floatW + i] = doc().context.GetPixel(doc().selX + i, doc().selY + j);
             }
         }
-        ClearRegion(m_selX, m_selY, m_selW, m_selH);
+        ClearRegion(doc().selX, doc().selY, doc().selW, doc().selH);
     }
 
     void MainWindow::StampFloating(int32_t atX, int32_t atY)
@@ -462,7 +481,7 @@ namespace winrt::IconMaster::implementation
                 const winrt::Windows::UI::Color c = m_floatPixels[static_cast<size_t>(j) * m_floatW + i];
                 if (c.A > 0)
                 {
-                    m_context.SetPixel(atX + i, atY + j, c);
+                    doc().context.SetPixel(atX + i, atY + j, c);
                 }
             }
         }
@@ -470,38 +489,38 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OnSelectAll(IInspectable const&, RoutedEventArgs const&)
     {
-        if (m_context == nullptr)
+        if (doc().context == nullptr)
         {
             return;
         }
-        m_hasSelection = true;
-        m_selX = 0;
-        m_selY = 0;
-        m_selW = m_context.PixelWidth();
-        m_selH = m_context.PixelHeight();
+        doc().hasSelection = true;
+        doc().selX = 0;
+        doc().selY = 0;
+        doc().selW = doc().context.PixelWidth();
+        doc().selH = doc().context.PixelHeight();
         Render();
     }
 
     void MainWindow::OnDeselect(IInspectable const&, RoutedEventArgs const&)
     {
-        m_hasSelection = false;
+        doc().hasSelection = false;
         Render();
     }
 
     void MainWindow::OnCopy(IInspectable const&, RoutedEventArgs const&)
     {
-        if (!m_hasSelection)
+        if (!doc().hasSelection)
         {
             return;
         }
-        m_clipW = m_selW;
-        m_clipH = m_selH;
+        m_clipW = doc().selW;
+        m_clipH = doc().selH;
         m_clipPixels.assign(static_cast<size_t>(m_clipW) * m_clipH, kTransparent);
         for (int32_t j = 0; j < m_clipH; ++j)
         {
             for (int32_t i = 0; i < m_clipW; ++i)
             {
-                m_clipPixels[static_cast<size_t>(j) * m_clipW + i] = m_context.GetPixel(m_selX + i, m_selY + j);
+                m_clipPixels[static_cast<size_t>(j) * m_clipW + i] = doc().context.GetPixel(doc().selX + i, doc().selY + j);
             }
         }
         m_hasClip = true;
@@ -509,13 +528,13 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OnCut(IInspectable const& sender, RoutedEventArgs const& args)
     {
-        if (!m_hasSelection)
+        if (!doc().hasSelection)
         {
             return;
         }
         OnCopy(sender, args);
         PushUndo();
-        ClearRegion(m_selX, m_selY, m_selW, m_selH);
+        ClearRegion(doc().selX, doc().selY, doc().selW, doc().selH);
         Render();
     }
 
@@ -526,8 +545,8 @@ namespace winrt::IconMaster::implementation
             return;
         }
         PushUndo();
-        const int32_t tx = m_hasSelection ? m_selX : 0;
-        const int32_t ty = m_hasSelection ? m_selY : 0;
+        const int32_t tx = doc().hasSelection ? doc().selX : 0;
+        const int32_t ty = doc().hasSelection ? doc().selY : 0;
         for (int32_t j = 0; j < m_clipH; ++j)
         {
             for (int32_t i = 0; i < m_clipW; ++i)
@@ -535,56 +554,81 @@ namespace winrt::IconMaster::implementation
                 const winrt::Windows::UI::Color c = m_clipPixels[static_cast<size_t>(j) * m_clipW + i];
                 if (c.A > 0)
                 {
-                    m_context.SetPixel(tx + i, ty + j, c);
+                    doc().context.SetPixel(tx + i, ty + j, c);
                 }
             }
         }
-        m_hasSelection = true;
-        m_selX = tx;
-        m_selY = ty;
-        m_selW = m_clipW;
-        m_selH = m_clipH;
+        doc().hasSelection = true;
+        doc().selX = tx;
+        doc().selY = ty;
+        doc().selW = m_clipW;
+        doc().selH = m_clipH;
         Render();
     }
 
     void MainWindow::OnDelete(IInspectable const&, RoutedEventArgs const&)
     {
-        if (!m_hasSelection)
+        if (!doc().hasSelection)
         {
             return;
         }
         PushUndo();
-        ClearRegion(m_selX, m_selY, m_selW, m_selH);
+        ClearRegion(doc().selX, doc().selY, doc().selW, doc().selH);
         Render();
     }
 
     // ---- File ---------------------------------------------------------------
 
-    void MainWindow::LoadContext(winrt::IconMaster::DrawingContext const& context, int32_t fitZoom)
+    void MainWindow::ResetTransient()
     {
-        m_context = context;
-        m_hasSelection = false;
         m_selecting = false;
         m_moving = false;
         m_shapeActive = false;
         m_floatPixels.clear();
-        m_zoom = std::clamp(fitZoom, k_minZoom, k_maxZoom);
-        ClearHistory();
+    }
+
+    void MainWindow::AddDocument(winrt::IconMaster::DrawingContext const& context, winrt::hstring const& title, int32_t zoom)
+    {
+        m_updatingTabs = true;
+
+        Document d;
+        d.context = context;
+        d.zoom = std::clamp(zoom, k_minZoom, k_maxZoom);
+        d.title = title;
+        m_docs.push_back(std::move(d));
+
+        auto item = winrt::Microsoft::UI::Xaml::Controls::TabViewItem();
+        item.Header(winrt::box_value(title));
+        item.IsClosable(true);
+        Tabs().TabItems().Append(item);
+
+        m_active = m_docs.size() - 1;
+        Tabs().SelectedIndex(static_cast<int32_t>(m_active));
+
+        m_updatingTabs = false;
+
+        ResetTransient();
         RebuildDisplay();
+    }
+
+    void MainWindow::NewDocument()
+    {
+        auto context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
+        context.Color(ColorPickerControl().Color());
+        m_docCounter += 1;
+        AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), 16);
+        StatusText().Text(L"New 32 x 32 icon.");
     }
 
     void MainWindow::OnNew(IInspectable const&, RoutedEventArgs const&)
     {
-        auto context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
-        context.Color(ColorPickerControl().Color());
-        LoadContext(context, 16);
-        StatusText().Text(L"New 32 x 32 icon.");
+        NewDocument();
     }
 
     winrt::fire_and_forget MainWindow::OnSave(IInspectable const&, RoutedEventArgs const&)
     {
         auto lifetime = get_strong();
-        if (m_context == nullptr)
+        if (doc().context == nullptr)
         {
             co_return;
         }
@@ -607,14 +651,14 @@ namespace winrt::IconMaster::implementation
             co_return;
         }
 
-        const int32_t w = m_context.PixelWidth();
-        const int32_t h = m_context.PixelHeight();
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
         std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
         for (int32_t y = 0; y < h; ++y)
         {
             for (int32_t x = 0; x < w; ++x)
             {
-                const auto c = m_context.GetPixel(x, y);
+                const auto c = doc().context.GetPixel(x, y);
                 const size_t i = (static_cast<size_t>(y) * w + x) * 4;
                 bytes[i + 0] = c.B;
                 bytes[i + 1] = c.G;
@@ -689,14 +733,14 @@ namespace winrt::IconMaster::implementation
         }
 
         const int32_t fit = static_cast<int32_t>(512u / std::max(w, h));
-        LoadContext(context, fit);
+        AddDocument(context, file.Name(), fit);
         StatusText().Text(L"Opened " + file.Name());
     }
 
     std::vector<uint8_t> MainWindow::ScaleCanvas(int32_t target)
     {
-        const int32_t w = m_context.PixelWidth();
-        const int32_t h = m_context.PixelHeight();
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
         std::vector<uint8_t> out(static_cast<size_t>(target) * target * 4);
         for (int32_t y = 0; y < target; ++y)
         {
@@ -704,7 +748,7 @@ namespace winrt::IconMaster::implementation
             {
                 const int32_t sx = x * w / target; // nearest-neighbour
                 const int32_t sy = y * h / target;
-                const auto c = m_context.GetPixel(sx, sy);
+                const auto c = doc().context.GetPixel(sx, sy);
                 const size_t i = (static_cast<size_t>(y) * target + x) * 4;
                 out[i + 0] = c.B;
                 out[i + 1] = c.G;
@@ -718,7 +762,7 @@ namespace winrt::IconMaster::implementation
     winrt::fire_and_forget MainWindow::OnExportIco(IInspectable const&, RoutedEventArgs const&)
     {
         auto lifetime = get_strong();
-        if (m_context == nullptr)
+        if (doc().context == nullptr)
         {
             co_return;
         }
@@ -816,8 +860,8 @@ namespace winrt::IconMaster::implementation
 
     MainWindow::Snapshot MainWindow::CaptureSnapshot()
     {
-        const int32_t w = m_context.PixelWidth();
-        const int32_t h = m_context.PixelHeight();
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
         Snapshot s;
         s.w = w;
         s.h = h;
@@ -826,7 +870,7 @@ namespace winrt::IconMaster::implementation
         {
             for (int32_t x = 0; x < w; ++x)
             {
-                s.pixels[static_cast<size_t>(y) * w + x] = m_context.GetPixel(x, y);
+                s.pixels[static_cast<size_t>(y) * w + x] = doc().context.GetPixel(x, y);
             }
         }
         return s;
@@ -834,21 +878,21 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::RestoreSnapshot(Snapshot const& snap)
     {
-        if (snap.w != m_context.PixelWidth() || snap.h != m_context.PixelHeight())
+        if (snap.w != doc().context.PixelWidth() || snap.h != doc().context.PixelHeight())
         {
             auto context = winrt::IconMaster::DrawingContext(snap.w, snap.h);
-            context.Color(m_context.Color());
-            m_context = context;
+            context.Color(doc().context.Color());
+            doc().context = context;
         }
         for (int32_t y = 0; y < snap.h; ++y)
         {
             for (int32_t x = 0; x < snap.w; ++x)
             {
-                m_context.SetPixel(x, y, snap.pixels[static_cast<size_t>(y) * snap.w + x]);
+                doc().context.SetPixel(x, y, snap.pixels[static_cast<size_t>(y) * snap.w + x]);
             }
         }
         // The selection may reference pixels that no longer match; clear it.
-        m_hasSelection = false;
+        doc().hasSelection = false;
         m_selecting = false;
         m_moving = false;
         m_shapeActive = false;
@@ -857,31 +901,31 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::PushUndo()
     {
-        m_undo.push_back(CaptureSnapshot());
-        if (m_undo.size() > k_maxHistory)
+        doc().undo.push_back(CaptureSnapshot());
+        if (doc().undo.size() > k_maxHistory)
         {
-            m_undo.erase(m_undo.begin());
+            doc().undo.erase(doc().undo.begin());
         }
-        m_redo.clear();
+        doc().redo.clear();
     }
 
     void MainWindow::ClearHistory()
     {
-        m_undo.clear();
-        m_redo.clear();
+        doc().undo.clear();
+        doc().redo.clear();
     }
 
     void MainWindow::OnUndo(IInspectable const&, RoutedEventArgs const&)
     {
-        if (m_undo.empty())
+        if (doc().undo.empty())
         {
             StatusText().Text(L"Nothing to undo.");
             return;
         }
-        m_redo.push_back(CaptureSnapshot());
-        Snapshot snap = std::move(m_undo.back());
-        m_undo.pop_back();
-        const bool resized = (snap.w != m_context.PixelWidth() || snap.h != m_context.PixelHeight());
+        doc().redo.push_back(CaptureSnapshot());
+        Snapshot snap = std::move(doc().undo.back());
+        doc().undo.pop_back();
+        const bool resized = (snap.w != doc().context.PixelWidth() || snap.h != doc().context.PixelHeight());
         RestoreSnapshot(snap);
         if (resized) { RebuildDisplay(); } else { Render(); }
         StatusText().Text(L"Undo.");
@@ -889,38 +933,93 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OnRedo(IInspectable const&, RoutedEventArgs const&)
     {
-        if (m_redo.empty())
+        if (doc().redo.empty())
         {
             StatusText().Text(L"Nothing to redo.");
             return;
         }
-        m_undo.push_back(CaptureSnapshot());
-        Snapshot snap = std::move(m_redo.back());
-        m_redo.pop_back();
-        const bool resized = (snap.w != m_context.PixelWidth() || snap.h != m_context.PixelHeight());
+        doc().undo.push_back(CaptureSnapshot());
+        Snapshot snap = std::move(doc().redo.back());
+        doc().redo.pop_back();
+        const bool resized = (snap.w != doc().context.PixelWidth() || snap.h != doc().context.PixelHeight());
         RestoreSnapshot(snap);
         if (resized) { RebuildDisplay(); } else { Render(); }
         StatusText().Text(L"Redo.");
+    }
+
+    // ---- Tabs ---------------------------------------------------------------
+
+    void MainWindow::OnTabSelectionChanged(IInspectable const&, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&)
+    {
+        if (m_updatingTabs)
+        {
+            return;
+        }
+        const int32_t idx = Tabs().SelectedIndex();
+        if (idx < 0 || static_cast<size_t>(idx) >= m_docs.size())
+        {
+            return;
+        }
+        m_active = static_cast<size_t>(idx);
+        ResetTransient();
+        RebuildDisplay();
+    }
+
+    void MainWindow::OnAddTab(winrt::Microsoft::UI::Xaml::Controls::TabView const&, IInspectable const&)
+    {
+        NewDocument();
+    }
+
+    void MainWindow::OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const&, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args)
+    {
+        if (m_docs.size() <= 1)
+        {
+            return; // always keep at least one document open
+        }
+
+        uint32_t index = 0;
+        if (!Tabs().TabItems().IndexOf(args.Tab(), index))
+        {
+            return;
+        }
+
+        m_updatingTabs = true;
+        m_docs.erase(m_docs.begin() + index);
+        Tabs().TabItems().RemoveAt(index);
+
+        if (m_active >= m_docs.size())
+        {
+            m_active = m_docs.size() - 1;
+        }
+        else if (index < m_active)
+        {
+            m_active -= 1;
+        }
+        Tabs().SelectedIndex(static_cast<int32_t>(m_active));
+        m_updatingTabs = false;
+
+        ResetTransient();
+        RebuildDisplay();
     }
 
     // ---- Rendering ----------------------------------------------------------
 
     void MainWindow::RebuildDisplay()
     {
-        if (m_context == nullptr)
+        if (doc().context == nullptr)
         {
             return;
         }
 
         // One extra pixel so the closing grid line on the right/bottom is drawn.
-        const int32_t dw = m_context.PixelWidth() * m_zoom + 1;
-        const int32_t dh = m_context.PixelHeight() * m_zoom + 1;
+        const int32_t dw = doc().context.PixelWidth() * doc().zoom + 1;
+        const int32_t dh = doc().context.PixelHeight() * doc().zoom + 1;
 
         m_display = WriteableBitmap(dw, dh);
         CanvasImage().Source(m_display);
         Render();
 
-        ZoomText().Text(winrt::to_hstring(m_zoom * 100) + L"%");
+        ZoomText().Text(winrt::to_hstring(doc().zoom * 100) + L"%");
     }
 
     uint8_t* MainWindow::DisplayData()
@@ -937,15 +1036,15 @@ namespace winrt::IconMaster::implementation
         const size_t i = (static_cast<size_t>(dy) * displayWidth + dx) * 4;
 
         uint8_t b, g, r;
-        if ((dx % m_zoom == 0) || (dy % m_zoom == 0))
+        if ((dx % doc().zoom == 0) || (dy % doc().zoom == 0))
         {
             b = g = r = 0xA0; // grid line
         }
         else
         {
-            const int32_t lx = dx / m_zoom;
-            const int32_t ly = dy / m_zoom;
-            const winrt::Windows::UI::Color c = m_context.GetPixel(lx, ly);
+            const int32_t lx = dx / doc().zoom;
+            const int32_t ly = dy / doc().zoom;
+            const winrt::Windows::UI::Color c = doc().context.GetPixel(lx, ly);
             if (c.A == 0)
             {
                 const bool light = ((((dx / k_checkerCell) + (dy / k_checkerCell)) & 1) == 0);
@@ -967,12 +1066,12 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::PaintPreviewBlock(uint8_t* data, int32_t displayWidth, int32_t displayHeight, int32_t lx, int32_t ly, winrt::Windows::UI::Color const& color)
     {
-        const int32_t x0 = lx * m_zoom;
-        const int32_t y0 = ly * m_zoom;
+        const int32_t x0 = lx * doc().zoom;
+        const int32_t y0 = ly * doc().zoom;
 
-        for (int32_t dy = y0 + 1; dy < y0 + m_zoom && dy < displayHeight; ++dy)
+        for (int32_t dy = y0 + 1; dy < y0 + doc().zoom && dy < displayHeight; ++dy)
         {
-            for (int32_t dx = x0 + 1; dx < x0 + m_zoom && dx < displayWidth; ++dx)
+            for (int32_t dx = x0 + 1; dx < x0 + doc().zoom && dx < displayWidth; ++dx)
             {
                 const size_t i = (static_cast<size_t>(dy) * displayWidth + dx) * 4;
                 data[i + 0] = color.B;
@@ -1000,7 +1099,7 @@ namespace winrt::IconMaster::implementation
         {
             return;
         }
-        const winrt::Windows::UI::Color color = m_context.Color();
+        const winrt::Windows::UI::Color color = doc().context.Color();
         if (color.A == 0)
         {
             return;
@@ -1014,8 +1113,8 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OverlayFloating(uint8_t* data, int32_t dw, int32_t dh)
     {
-        const int32_t w = m_context.PixelWidth();
-        const int32_t h = m_context.PixelHeight();
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
         for (int32_t j = 0; j < m_floatH; ++j)
         {
             for (int32_t i = 0; i < m_floatW; ++i)
@@ -1025,8 +1124,8 @@ namespace winrt::IconMaster::implementation
                 {
                     continue;
                 }
-                const int32_t tx = m_selX + m_moveDX + i;
-                const int32_t ty = m_selY + m_moveDY + j;
+                const int32_t tx = doc().selX + m_moveDX + i;
+                const int32_t ty = doc().selY + m_moveDY + j;
                 if (tx < 0 || tx >= w || ty < 0 || ty >= h)
                 {
                     continue;
@@ -1038,12 +1137,12 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OverlaySelectionBorder(uint8_t* data, int32_t dw, int32_t dh)
     {
-        const int32_t sx = m_selX + (m_moving ? m_moveDX : 0);
-        const int32_t sy = m_selY + (m_moving ? m_moveDY : 0);
-        const int32_t x0 = sx * m_zoom;
-        const int32_t y0 = sy * m_zoom;
-        const int32_t x1 = (sx + m_selW) * m_zoom;
-        const int32_t y1 = (sy + m_selH) * m_zoom;
+        const int32_t sx = doc().selX + (m_moving ? m_moveDX : 0);
+        const int32_t sy = doc().selY + (m_moving ? m_moveDY : 0);
+        const int32_t x0 = sx * doc().zoom;
+        const int32_t y0 = sy * doc().zoom;
+        const int32_t x1 = (sx + doc().selW) * doc().zoom;
+        const int32_t y1 = (sy + doc().selH) * doc().zoom;
 
         auto put = [&](int32_t dx, int32_t dy)
         {
@@ -1078,7 +1177,7 @@ namespace winrt::IconMaster::implementation
         RenderBase(data, dw, dh);
         if (m_shapeActive)   { OverlayShapePreview(data, dw, dh); }
         if (m_moving)        { OverlayFloating(data, dw, dh); }
-        if (m_hasSelection)  { OverlaySelectionBorder(data, dw, dh); }
+        if (doc().hasSelection)  { OverlaySelectionBorder(data, dw, dh); }
 
         m_display.Invalidate();
     }

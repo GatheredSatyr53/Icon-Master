@@ -35,12 +35,37 @@ namespace winrt::IconMaster::implementation
         void OnUndo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnRedo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
+        void OnTabSelectionChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& args);
+        void OnAddTab(winrt::Microsoft::UI::Xaml::Controls::TabView const& sender, winrt::Windows::Foundation::IInspectable const& args);
+        void OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const& sender, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args);
+
     private:
-        void LoadContext(winrt::IconMaster::DrawingContext const& context, int32_t fitZoom);
+        void NewDocument();
+        void AddDocument(winrt::IconMaster::DrawingContext const& context, winrt::hstring const& title, int32_t zoom);
+        void ResetTransient();
         std::vector<uint8_t> ScaleCanvas(int32_t target); // nearest-neighbour, BGRA8
 
         // Undo/redo via full-canvas snapshots.
         struct Snapshot { int32_t w; int32_t h; std::vector<winrt::Windows::UI::Color> pixels; };
+
+        // Per-document state (one per open tab). The current tool, colour, clipboard,
+        // and the in-progress drag are shared/transient and live in MainWindow.
+        struct Document
+        {
+            winrt::IconMaster::DrawingContext context{ nullptr };
+            int32_t zoom{ 16 };
+            bool hasSelection{ false };
+            int32_t selX{ 0 };
+            int32_t selY{ 0 };
+            int32_t selW{ 0 };
+            int32_t selH{ 0 };
+            std::vector<Snapshot> undo;
+            std::vector<Snapshot> redo;
+            winrt::hstring title;
+        };
+        Document& doc() { return m_docs[m_active]; }
+        Document const& doc() const { return m_docs[m_active]; }
+
         Snapshot CaptureSnapshot();
         void RestoreSnapshot(Snapshot const& snap);
         void PushUndo();
@@ -79,7 +104,6 @@ namespace winrt::IconMaster::implementation
         static constexpr int32_t k_maxZoom = 48;
         static constexpr int32_t k_checkerCell = 8; // transparency checker cell, in display pixels
 
-        int32_t m_zoom{ 16 };
         ToolKind m_toolKind{ ToolKind::Pen };
         bool m_suppressColorSync{ false };
 
@@ -89,13 +113,6 @@ namespace winrt::IconMaster::implementation
         int32_t m_shapeStartY{ 0 };
         int32_t m_shapeCurX{ 0 };
         int32_t m_shapeCurY{ 0 };
-
-        // Selection state (pixel-space rectangle).
-        bool m_hasSelection{ false };
-        int32_t m_selX{ 0 };
-        int32_t m_selY{ 0 };
-        int32_t m_selW{ 0 };
-        int32_t m_selH{ 0 };
 
         // Defining a selection by dragging.
         bool m_selecting{ false };
@@ -118,12 +135,15 @@ namespace winrt::IconMaster::implementation
         int32_t m_clipH{ 0 };
         std::vector<winrt::Windows::UI::Color> m_clipPixels;
 
-        // History.
+        // History cap (per document).
         static constexpr size_t k_maxHistory = 64;
-        std::vector<Snapshot> m_undo;
-        std::vector<Snapshot> m_redo;
 
-        winrt::IconMaster::DrawingContext m_context{ nullptr };
+        // Open documents (tabs) and the active index.
+        std::vector<Document> m_docs;
+        size_t m_active{ 0 };
+        bool m_updatingTabs{ false };  // suppress tab handlers during programmatic changes
+        int32_t m_docCounter{ 0 };     // for default document titles
+
         winrt::IconMaster::Pen m_pen{ nullptr };
         winrt::IconMaster::Eraser m_eraser{ nullptr };
         winrt::IconMaster::Fill m_fill{ nullptr };
