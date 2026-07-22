@@ -19,7 +19,10 @@
 #include <vector>
 
 using namespace winrt;
-using namespace winrt::Windows::Foundation;
+// Narrow using-declaration (not the whole Windows::Foundation namespace) so that
+// winrt's IUnknown does not clash with ::IUnknown from the classic COM headers
+// (<shobjidl_core.h>) used for the file pickers.
+using winrt::Windows::Foundation::IInspectable;
 using namespace winrt::Windows::UI;
 using namespace winrt::Microsoft::UI::Xaml;
 using namespace winrt::Microsoft::UI::Xaml::Controls;
