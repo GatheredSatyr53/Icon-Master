@@ -32,9 +32,19 @@ namespace winrt::IconMaster::implementation
         winrt::fire_and_forget OnSave(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnExportIco(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
+        void OnUndo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnRedo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+
     private:
         void LoadContext(winrt::IconMaster::DrawingContext const& context, int32_t fitZoom);
         std::vector<uint8_t> ScaleCanvas(int32_t target); // nearest-neighbour, BGRA8
+
+        // Undo/redo via full-canvas snapshots.
+        struct Snapshot { int32_t w; int32_t h; std::vector<winrt::Windows::UI::Color> pixels; };
+        Snapshot CaptureSnapshot();
+        void RestoreSnapshot(Snapshot const& snap);
+        void PushUndo();
+        void ClearHistory();
         enum class ToolKind { Pen, Eraser, Fill, Eyedropper, Line, Rectangle, Ellipse, Select };
 
         // Rendering.
@@ -107,6 +117,11 @@ namespace winrt::IconMaster::implementation
         int32_t m_clipW{ 0 };
         int32_t m_clipH{ 0 };
         std::vector<winrt::Windows::UI::Color> m_clipPixels;
+
+        // History.
+        static constexpr size_t k_maxHistory = 64;
+        std::vector<Snapshot> m_undo;
+        std::vector<Snapshot> m_redo;
 
         winrt::IconMaster::DrawingContext m_context{ nullptr };
         winrt::IconMaster::Pen m_pen{ nullptr };
