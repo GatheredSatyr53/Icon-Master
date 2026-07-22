@@ -5,6 +5,8 @@
 #endif
 
 #include <winrt/IconMaster.h>
+#include <winrt/Microsoft.UI.Windowing.h>
+#include <winrt/Windows.Graphics.h>
 #include <robuffer.h>
 #include <algorithm>
 #include <string>
@@ -23,6 +25,13 @@ namespace winrt::IconMaster::implementation
     {
         // Loads the XAML and creates the named elements. Must run before any is accessed.
         InitializeComponent();
+
+        // Open at a size that fits the toolbox, canvas, and colour palette
+        // (the ColorPicker gets wide when its "More" panel is expanded).
+        if (auto appWindow = AppWindow())
+        {
+            appWindow.Resize(winrt::Windows::Graphics::SizeInt32{ 1200, 820 });
+        }
 
         m_context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
         m_pen = winrt::IconMaster::Pen();
