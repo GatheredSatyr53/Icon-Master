@@ -63,7 +63,7 @@
         </Grid>
 
         <!-- Palette -->
-        <StackPanel Grid.Column="2" Spacing="8" Width="288">
+        <StackPanel Grid.Column="2" Spacing="8" Width="320">
             <TextBlock Text="Colour" Style="{StaticResource CaptionTextBlockStyle}" />
 
             <StackPanel Orientation="Horizontal" Spacing="4">
@@ -115,7 +115,8 @@
                          IsAlphaEnabled="True"
                          IsMoreButtonVisible="True"
                          ColorSpectrumShape="Box"
-                         ColorChanged="OnColorChanged" />
+                         ColorChanged="OnColorChanged"
+                         />
         </StackPanel>
     </Grid>
 </Window>
