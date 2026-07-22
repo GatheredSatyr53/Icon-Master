@@ -1,0 +1,42 @@
+namespace IconMaster
+{
+    // A drawing surface: a pixel bitmap plus the currently selected colour.
+    runtimeclass DrawingContext
+    {
+        DrawingContext(Int32 width, Int32 height);
+
+        Int32 PixelWidth{ get; };
+        Int32 PixelHeight{ get; };
+
+        Windows.UI.Color Color;
+
+        // The bitmap backing this context, usable directly as an Image source.
+        Microsoft.UI.Xaml.Media.Imaging.WriteableBitmap Bitmap{ get; };
+
+        void SetPixel(Int32 x, Int32 y, Windows.UI.Color color);
+        void Clear(Windows.UI.Color color);
+
+        // Push pending pixel writes to the screen. Call once after a batch.
+        void Invalidate();
+    }
+
+    // A drawing tool. Given a context and a pixel coordinate, it mutates the bitmap.
+    interface ITool
+    {
+        void Draw(DrawingContext context, Int32 x, Int32 y);
+    }
+
+    // Paints the context's current colour at the pixel.
+    [default_interface]
+    runtimeclass Pen : ITool
+    {
+        Pen();
+    }
+
+    // Clears the pixel to transparent.
+    [default_interface]
+    runtimeclass Eraser : ITool
+    {
+        Eraser();
+    }
+}

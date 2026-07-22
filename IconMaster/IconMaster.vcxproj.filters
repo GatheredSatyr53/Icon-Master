@@ -13,6 +13,9 @@
     <ClInclude Include="MainWindow.xaml.h">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClInclude>
+    <ClInclude Include="DrawingContext.h" />
+    <ClInclude Include="Pen.h" />
+    <ClInclude Include="Eraser.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -22,8 +25,12 @@
     <ClCompile Include="MainWindow.xaml.cpp">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClCompile>
+    <ClCompile Include="DrawingContext.cpp" />
+    <ClCompile Include="Pen.cpp" />
+    <ClCompile Include="Eraser.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Midl Include="Editor.idl" />
     <Midl Include="MainWindow.idl" />
   </ItemGroup>
   <ItemGroup>
