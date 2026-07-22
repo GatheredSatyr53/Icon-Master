@@ -10,8 +10,8 @@ on **WinUI 3** and **C++/WinRT**.
 > pixel canvas with a crisp grid and a transparency checkerboard using the Pen,
 > Eraser, Fill, Eyedropper, and shape (Line/Rectangle/Ellipse) tools, choose a
 > colour from swatches or a full colour picker, make a rectangular selection to
-> move, cut, copy, paste, or delete pixels, undo/redo, open/save the canvas as a
-> PNG, and export a multi-size Windows ICO. Tabs for multiple documents are still to come.
+> move, cut, copy, paste, or delete pixels, undo/redo, work on several icons at
+> once in tabs, open/save the canvas as a PNG, and export a multi-size Windows ICO.
 
 ## Requirements
 
@@ -83,4 +83,4 @@ and routes pointer input to the active tool.
 - [x] Export to multi-size ICO (16 / 32 / 48 / 256)
 - [x] Undo / redo
 - [x] Fill bounded to the current selection
-- [ ] Multiple documents (tabs)
+- [x] Multiple documents in tabs (new / open in their own tab, close, switch)

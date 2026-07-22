@@ -109,20 +109,27 @@
         </ScrollViewer>
 
         <!-- Canvas area -->
-        <Grid Grid.Column="1" RowSpacing="12">
+        <Grid Grid.Column="1" RowSpacing="8">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <TabView x:Name="Tabs" Grid.Row="0"
+                     IsAddTabButtonVisible="True"
+                     SelectionChanged="OnTabSelectionChanged"
+                     AddTabButtonClick="OnAddTab"
+                     TabCloseRequested="OnTabCloseRequested" />
+
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <Button Content="&#x2212;" Click="OnZoomOut" ToolTipService.ToolTip="Zoom out" />
                 <TextBlock x:Name="ZoomText" VerticalAlignment="Center" MinWidth="52" TextAlignment="Center" Text="1600%" />
                 <Button Content="&#x2b;" Click="OnZoomIn" ToolTipService.ToolTip="Zoom in" />
             </StackPanel>
 
-            <ScrollViewer Grid.Row="1"
+            <ScrollViewer Grid.Row="2"
                           ZoomMode="Disabled"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto"
@@ -139,7 +146,7 @@
                 </Border>
             </ScrollViewer>
 
-            <TextBlock x:Name="StatusText" Grid.Row="2" Text="Left button draws, right button erases." />
+            <TextBlock x:Name="StatusText" Grid.Row="3" Text="Left button draws, right button erases." />
         </Grid>
 
         <!-- Palette -->

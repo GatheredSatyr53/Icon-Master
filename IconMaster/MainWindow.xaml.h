@@ -35,8 +35,14 @@ namespace winrt::IconMaster::implementation
         void OnUndo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnRedo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
+        void OnTabSelectionChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& args);
+        void OnAddTab(winrt::Microsoft::UI::Xaml::Controls::TabView const& sender, winrt::Windows::Foundation::IInspectable const& args);
+        void OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const& sender, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args);
+
     private:
-        void LoadContext(winrt::IconMaster::DrawingContext const& context, int32_t fitZoom);
+        void NewDocument();
+        void AddDocument(winrt::IconMaster::DrawingContext const& context, winrt::hstring const& title, int32_t zoom);
+        void ResetTransient();
         std::vector<uint8_t> ScaleCanvas(int32_t target); // nearest-neighbour, BGRA8
 
         // Undo/redo via full-canvas snapshots.
@@ -135,6 +141,8 @@ namespace winrt::IconMaster::implementation
         // Open documents (tabs) and the active index.
         std::vector<Document> m_docs;
         size_t m_active{ 0 };
+        bool m_updatingTabs{ false };  // suppress tab handlers during programmatic changes
+        int32_t m_docCounter{ 0 };     // for default document titles
 
         winrt::IconMaster::Pen m_pen{ nullptr };
         winrt::IconMaster::Eraser m_eraser{ nullptr };

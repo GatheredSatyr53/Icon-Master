@@ -68,6 +68,19 @@ namespace winrt::IconMaster::implementation
         // Sets the initial colour (also flows into the context via ColorChanged).
         ColorPickerControl().Color(winrt::Windows::UI::Color{ 0xFF, 0x00, 0x00, 0x00 });
 
+        // Tab for the initial document.
+        m_docCounter = 1;
+        doc().title = L"Icon 1";
+        m_updatingTabs = true;
+        {
+            auto item = winrt::Microsoft::UI::Xaml::Controls::TabViewItem();
+            item.Header(winrt::box_value(doc().title));
+            item.IsClosable(true);
+            Tabs().TabItems().Append(item);
+            Tabs().SelectedIndex(0);
+        }
+        m_updatingTabs = false;
+
         RebuildDisplay();
     }
 
@@ -566,25 +579,50 @@ namespace winrt::IconMaster::implementation
 
     // ---- File ---------------------------------------------------------------
 
-    void MainWindow::LoadContext(winrt::IconMaster::DrawingContext const& context, int32_t fitZoom)
+    void MainWindow::ResetTransient()
     {
-        doc().context = context;
-        doc().hasSelection = false;
         m_selecting = false;
         m_moving = false;
         m_shapeActive = false;
         m_floatPixels.clear();
-        doc().zoom = std::clamp(fitZoom, k_minZoom, k_maxZoom);
-        ClearHistory();
+    }
+
+    void MainWindow::AddDocument(winrt::IconMaster::DrawingContext const& context, winrt::hstring const& title, int32_t zoom)
+    {
+        m_updatingTabs = true;
+
+        Document d;
+        d.context = context;
+        d.zoom = std::clamp(zoom, k_minZoom, k_maxZoom);
+        d.title = title;
+        m_docs.push_back(std::move(d));
+
+        auto item = winrt::Microsoft::UI::Xaml::Controls::TabViewItem();
+        item.Header(winrt::box_value(title));
+        item.IsClosable(true);
+        Tabs().TabItems().Append(item);
+
+        m_active = m_docs.size() - 1;
+        Tabs().SelectedIndex(static_cast<int32_t>(m_active));
+
+        m_updatingTabs = false;
+
+        ResetTransient();
         RebuildDisplay();
+    }
+
+    void MainWindow::NewDocument()
+    {
+        auto context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
+        context.Color(ColorPickerControl().Color());
+        m_docCounter += 1;
+        AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), 16);
+        StatusText().Text(L"New 32 x 32 icon.");
     }
 
     void MainWindow::OnNew(IInspectable const&, RoutedEventArgs const&)
     {
-        auto context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
-        context.Color(ColorPickerControl().Color());
-        LoadContext(context, 16);
-        StatusText().Text(L"New 32 x 32 icon.");
+        NewDocument();
     }
 
     winrt::fire_and_forget MainWindow::OnSave(IInspectable const&, RoutedEventArgs const&)
@@ -695,7 +733,7 @@ namespace winrt::IconMaster::implementation
         }
 
         const int32_t fit = static_cast<int32_t>(512u / std::max(w, h));
-        LoadContext(context, fit);
+        AddDocument(context, file.Name(), fit);
         StatusText().Text(L"Opened " + file.Name());
     }
 
@@ -907,6 +945,61 @@ namespace winrt::IconMaster::implementation
         RestoreSnapshot(snap);
         if (resized) { RebuildDisplay(); } else { Render(); }
         StatusText().Text(L"Redo.");
+    }
+
+    // ---- Tabs ---------------------------------------------------------------
+
+    void MainWindow::OnTabSelectionChanged(IInspectable const&, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&)
+    {
+        if (m_updatingTabs)
+        {
+            return;
+        }
+        const int32_t idx = Tabs().SelectedIndex();
+        if (idx < 0 || static_cast<size_t>(idx) >= m_docs.size())
+        {
+            return;
+        }
+        m_active = static_cast<size_t>(idx);
+        ResetTransient();
+        RebuildDisplay();
+    }
+
+    void MainWindow::OnAddTab(winrt::Microsoft::UI::Xaml::Controls::TabView const&, IInspectable const&)
+    {
+        NewDocument();
+    }
+
+    void MainWindow::OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const&, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args)
+    {
+        if (m_docs.size() <= 1)
+        {
+            return; // always keep at least one document open
+        }
+
+        uint32_t index = 0;
+        if (!Tabs().TabItems().IndexOf(args.Tab(), index))
+        {
+            return;
+        }
+
+        m_updatingTabs = true;
+        m_docs.erase(m_docs.begin() + index);
+        Tabs().TabItems().RemoveAt(index);
+
+        if (m_active >= m_docs.size())
+        {
+            m_active = m_docs.size() - 1;
+        }
+        else if (index < m_active)
+        {
+            m_active -= 1;
+        }
+        Tabs().SelectedIndex(static_cast<int32_t>(m_active));
+        m_updatingTabs = false;
+
+        ResetTransient();
+        RebuildDisplay();
     }
 
     // ---- Rendering ----------------------------------------------------------
