@@ -204,6 +204,7 @@ namespace winrt::IconMaster::implementation
 
             if (InsideSelection(px, py))
             {
+                PushUndo();
                 LiftSelection();
                 m_moving = true;
                 m_moveAnchorX = px;
@@ -233,6 +234,13 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
+        // Pixel tools: snapshot once at the start of a stroke (not on every move),
+        // except the eyedropper which does not change pixels.
+        const bool right = props.IsRightButtonPressed();
+        if (right || (left && m_toolKind != ToolKind::Eyedropper))
+        {
+            PushUndo();
+        }
         DrawFromPointer(e);
     }
 
@@ -309,6 +317,7 @@ namespace winrt::IconMaster::implementation
             PointerToPixelClamped(e, px, py);
             m_shapeActive = false;
             CanvasImage().ReleasePointerCapture(e.Pointer());
+            PushUndo();
             CommitShape(px, py);
             return;
         }
@@ -492,6 +501,7 @@ namespace winrt::IconMaster::implementation
             return;
         }
         OnCopy(sender, args);
+        PushUndo();
         ClearRegion(m_selX, m_selY, m_selW, m_selH);
         Render();
     }
@@ -502,6 +512,7 @@ namespace winrt::IconMaster::implementation
         {
             return;
         }
+        PushUndo();
         const int32_t tx = m_hasSelection ? m_selX : 0;
         const int32_t ty = m_hasSelection ? m_selY : 0;
         for (int32_t j = 0; j < m_clipH; ++j)
@@ -529,6 +540,7 @@ namespace winrt::IconMaster::implementation
         {
             return;
         }
+        PushUndo();
         ClearRegion(m_selX, m_selY, m_selW, m_selH);
         Render();
     }
@@ -544,6 +556,7 @@ namespace winrt::IconMaster::implementation
         m_shapeActive = false;
         m_floatPixels.clear();
         m_zoom = std::clamp(fitZoom, k_minZoom, k_maxZoom);
+        ClearHistory();
         RebuildDisplay();
     }
 
@@ -784,6 +797,97 @@ namespace winrt::IconMaster::implementation
 
         co_await winrt::Windows::Storage::FileIO::WriteBytesAsync(file, ico);
         StatusText().Text(L"Exported " + file.Name() + L" (16, 32, 48, 256)");
+    }
+
+    // ---- History ------------------------------------------------------------
+
+    MainWindow::Snapshot MainWindow::CaptureSnapshot()
+    {
+        const int32_t w = m_context.PixelWidth();
+        const int32_t h = m_context.PixelHeight();
+        Snapshot s;
+        s.w = w;
+        s.h = h;
+        s.pixels.resize(static_cast<size_t>(w) * h);
+        for (int32_t y = 0; y < h; ++y)
+        {
+            for (int32_t x = 0; x < w; ++x)
+            {
+                s.pixels[static_cast<size_t>(y) * w + x] = m_context.GetPixel(x, y);
+            }
+        }
+        return s;
+    }
+
+    void MainWindow::RestoreSnapshot(Snapshot const& snap)
+    {
+        if (snap.w != m_context.PixelWidth() || snap.h != m_context.PixelHeight())
+        {
+            auto context = winrt::IconMaster::DrawingContext(snap.w, snap.h);
+            context.Color(m_context.Color());
+            m_context = context;
+        }
+        for (int32_t y = 0; y < snap.h; ++y)
+        {
+            for (int32_t x = 0; x < snap.w; ++x)
+            {
+                m_context.SetPixel(x, y, snap.pixels[static_cast<size_t>(y) * snap.w + x]);
+            }
+        }
+        // The selection may reference pixels that no longer match; clear it.
+        m_hasSelection = false;
+        m_selecting = false;
+        m_moving = false;
+        m_shapeActive = false;
+        m_floatPixels.clear();
+    }
+
+    void MainWindow::PushUndo()
+    {
+        m_undo.push_back(CaptureSnapshot());
+        if (m_undo.size() > k_maxHistory)
+        {
+            m_undo.erase(m_undo.begin());
+        }
+        m_redo.clear();
+    }
+
+    void MainWindow::ClearHistory()
+    {
+        m_undo.clear();
+        m_redo.clear();
+    }
+
+    void MainWindow::OnUndo(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (m_undo.empty())
+        {
+            StatusText().Text(L"Nothing to undo.");
+            return;
+        }
+        m_redo.push_back(CaptureSnapshot());
+        Snapshot snap = std::move(m_undo.back());
+        m_undo.pop_back();
+        const bool resized = (snap.w != m_context.PixelWidth() || snap.h != m_context.PixelHeight());
+        RestoreSnapshot(snap);
+        if (resized) { RebuildDisplay(); } else { Render(); }
+        StatusText().Text(L"Undo.");
+    }
+
+    void MainWindow::OnRedo(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (m_redo.empty())
+        {
+            StatusText().Text(L"Nothing to redo.");
+            return;
+        }
+        m_undo.push_back(CaptureSnapshot());
+        Snapshot snap = std::move(m_redo.back());
+        m_redo.pop_back();
+        const bool resized = (snap.w != m_context.PixelWidth() || snap.h != m_context.PixelHeight());
+        RestoreSnapshot(snap);
+        if (resized) { RebuildDisplay(); } else { Render(); }
+        StatusText().Text(L"Redo.");
     }
 
     // ---- Rendering ----------------------------------------------------------
