@@ -19,6 +19,11 @@ using namespace winrt::Microsoft::UI::Xaml::Controls;
 using namespace winrt::Microsoft::UI::Xaml::Input;
 using namespace winrt::Microsoft::UI::Xaml::Media::Imaging;
 
+namespace
+{
+    constexpr winrt::Windows::UI::Color kTransparent{ 0x00, 0x00, 0x00, 0x00 };
+}
+
 namespace winrt::IconMaster::implementation
 {
     MainWindow::MainWindow()
@@ -26,8 +31,7 @@ namespace winrt::IconMaster::implementation
         // Loads the XAML and creates the named elements. Must run before any is accessed.
         InitializeComponent();
 
-        // Open at a size that fits the toolbox, canvas, and colour palette
-        // (the ColorPicker gets wide when its "More" panel is expanded).
+        // Open at a size that fits the toolbox, canvas, and colour palette.
         if (auto appWindow = AppWindow())
         {
             appWindow.Resize(winrt::Windows::Graphics::SizeInt32{ 1200, 820 });
@@ -50,6 +54,8 @@ namespace winrt::IconMaster::implementation
 
         RebuildDisplay();
     }
+
+    // ---- Tool selection -----------------------------------------------------
 
     winrt::IconMaster::ITool MainWindow::ToolForKind(ToolKind kind)
     {
@@ -81,7 +87,6 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OnToolSelected(IInspectable const& sender, RoutedEventArgs const&)
     {
-        // Fires during XAML load before the context exists; ignore until ready.
         if (m_context == nullptr)
         {
             return;
@@ -96,14 +101,17 @@ namespace winrt::IconMaster::implementation
         else if (tag == L"line")       { m_toolKind = ToolKind::Line; }
         else if (tag == L"rectangle")  { m_toolKind = ToolKind::Rectangle; }
         else if (tag == L"ellipse")    { m_toolKind = ToolKind::Ellipse; }
+        else if (tag == L"select")     { m_toolKind = ToolKind::Select; }
         else                           { m_toolKind = ToolKind::Pen; }
 
         m_currentShape = ShapeToolForKind(m_toolKind);
-        if (!IsShapeTool(m_toolKind))
+        if (!IsShapeTool(m_toolKind) && m_toolKind != ToolKind::Select)
         {
             m_currentTool = ToolForKind(m_toolKind);
         }
     }
+
+    // ---- Colour -------------------------------------------------------------
 
     void MainWindow::OnSwatchClick(IInspectable const& sender, RoutedEventArgs const&)
     {
@@ -124,7 +132,6 @@ namespace winrt::IconMaster::implementation
             static_cast<uint8_t>(argb & 0xFF)
         };
 
-        // Route through the picker so its UI and the context stay in sync.
         ColorPickerControl().Color(color);
     }
 
@@ -137,139 +144,10 @@ namespace winrt::IconMaster::implementation
         m_context.Color(args.NewColor());
     }
 
-    void MainWindow::OnZoomIn(IInspectable const&, RoutedEventArgs const&)
-    {
-        SetZoom(m_zoom + 4);
-    }
+    // ---- Zoom ---------------------------------------------------------------
 
-    void MainWindow::OnZoomOut(IInspectable const&, RoutedEventArgs const&)
-    {
-        SetZoom(m_zoom - 4);
-    }
-
-    void MainWindow::OnCanvasPointerPressed(IInspectable const&, PointerRoutedEventArgs const& e)
-    {
-        if (m_context == nullptr)
-        {
-            return;
-        }
-
-        auto props = e.GetCurrentPoint(CanvasImage()).Properties();
-        if (IsShapeTool(m_toolKind) && props.IsLeftButtonPressed())
-        {
-            PointerToPixelClamped(e, m_shapeStartX, m_shapeStartY);
-            m_shapeActive = true;
-            CanvasImage().CapturePointer(e.Pointer());
-            RenderAll();
-            OverlayShapePreview(m_shapeStartX, m_shapeStartY);
-            return;
-        }
-
-        DrawFromPointer(e);
-    }
-
-    void MainWindow::OnCanvasPointerMoved(IInspectable const&, PointerRoutedEventArgs const& e)
-    {
-        if (m_shapeActive)
-        {
-            int32_t lx, ly;
-            PointerToPixelClamped(e, lx, ly);
-            RenderAll();
-            OverlayShapePreview(lx, ly);
-            StatusText().Text(L"x: " + winrt::to_hstring(lx) + L"  y: " + winrt::to_hstring(ly));
-            return;
-        }
-
-        DrawFromPointer(e);
-    }
-
-    void MainWindow::OnCanvasPointerReleased(IInspectable const&, PointerRoutedEventArgs const& e)
-    {
-        if (!m_shapeActive)
-        {
-            return;
-        }
-
-        int32_t lx, ly;
-        PointerToPixelClamped(e, lx, ly);
-        m_shapeActive = false;
-        CanvasImage().ReleasePointerCapture(e.Pointer());
-        CommitShape(lx, ly);
-        StatusText().Text(L"x: " + winrt::to_hstring(lx) + L"  y: " + winrt::to_hstring(ly));
-    }
-
-    void MainWindow::PointerToPixelClamped(PointerRoutedEventArgs const& e, int32_t& lx, int32_t& ly)
-    {
-        auto pos = e.GetCurrentPoint(CanvasImage()).Position();
-        const int32_t x = static_cast<int32_t>(pos.X) / m_zoom;
-        const int32_t y = static_cast<int32_t>(pos.Y) / m_zoom;
-        lx = std::clamp(x, 0, m_context.PixelWidth() - 1);
-        ly = std::clamp(y, 0, m_context.PixelHeight() - 1);
-    }
-
-    void MainWindow::PaintPreviewBlock(uint8_t* data, int32_t displayWidth, int32_t displayHeight, int32_t lx, int32_t ly, winrt::Windows::UI::Color const& color)
-    {
-        const int32_t x0 = lx * m_zoom;
-        const int32_t y0 = ly * m_zoom;
-
-        // Fill the block interior (leaving the grid lines intact).
-        for (int32_t dy = y0 + 1; dy < y0 + m_zoom && dy < displayHeight; ++dy)
-        {
-            for (int32_t dx = x0 + 1; dx < x0 + m_zoom && dx < displayWidth; ++dx)
-            {
-                const size_t i = (static_cast<size_t>(dy) * displayWidth + dx) * 4;
-                data[i + 0] = color.B;
-                data[i + 1] = color.G;
-                data[i + 2] = color.R;
-                data[i + 3] = 0xFF;
-            }
-        }
-    }
-
-    void MainWindow::OverlayShapePreview(int32_t x1, int32_t y1)
-    {
-        if (m_display == nullptr || m_currentShape == nullptr)
-        {
-            return;
-        }
-
-        const winrt::Windows::UI::Color color = m_context.Color();
-        if (color.A == 0)
-        {
-            // Nothing visible to preview (transparent colour).
-            m_display.Invalidate();
-            return;
-        }
-
-        const int32_t dw = m_display.PixelWidth();
-        const int32_t dh = m_display.PixelHeight();
-        uint8_t* data = DisplayData();
-
-        auto points = m_currentShape.Rasterize(m_shapeStartX, m_shapeStartY, x1, y1);
-        for (auto const& p : points)
-        {
-            PaintPreviewBlock(data, dw, dh, p.X, p.Y, color);
-        }
-
-        m_display.Invalidate();
-    }
-
-    void MainWindow::CommitShape(int32_t x1, int32_t y1)
-    {
-        if (m_currentShape == nullptr)
-        {
-            return;
-        }
-
-        const winrt::Windows::UI::Color color = m_context.Color();
-        auto points = m_currentShape.Rasterize(m_shapeStartX, m_shapeStartY, x1, y1);
-        for (auto const& p : points)
-        {
-            m_context.SetPixel(p.X, p.Y, color);
-        }
-
-        RenderAll();
-    }
+    void MainWindow::OnZoomIn(IInspectable const&, RoutedEventArgs const&) { SetZoom(m_zoom + 4); }
+    void MainWindow::OnZoomOut(IInspectable const&, RoutedEventArgs const&) { SetZoom(m_zoom - 4); }
 
     void MainWindow::SetZoom(int32_t zoom)
     {
@@ -282,114 +160,148 @@ namespace winrt::IconMaster::implementation
         RebuildDisplay();
     }
 
-    void MainWindow::RebuildDisplay()
+    // ---- Pointer ------------------------------------------------------------
+
+    void MainWindow::PointerToPixelClamped(PointerRoutedEventArgs const& e, int32_t& lx, int32_t& ly)
+    {
+        auto pos = e.GetCurrentPoint(CanvasImage()).Position();
+        const int32_t x = static_cast<int32_t>(pos.X) / m_zoom;
+        const int32_t y = static_cast<int32_t>(pos.Y) / m_zoom;
+        lx = std::clamp(x, 0, m_context.PixelWidth() - 1);
+        ly = std::clamp(y, 0, m_context.PixelHeight() - 1);
+    }
+
+    void MainWindow::OnCanvasPointerPressed(IInspectable const&, PointerRoutedEventArgs const& e)
     {
         if (m_context == nullptr)
         {
             return;
         }
 
-        // One extra pixel so the closing grid line on the right/bottom is drawn.
-        const int32_t dw = m_context.PixelWidth() * m_zoom + 1;
-        const int32_t dh = m_context.PixelHeight() * m_zoom + 1;
+        auto props = e.GetCurrentPoint(CanvasImage()).Properties();
+        const bool left = props.IsLeftButtonPressed();
 
-        m_display = WriteableBitmap(dw, dh);
-        CanvasImage().Source(m_display);
-        RenderAll();
-
-        ZoomText().Text(winrt::to_hstring(m_zoom * 100) + L"%");
-    }
-
-    uint8_t* MainWindow::DisplayData()
-    {
-        auto buffer = m_display.PixelBuffer();
-        auto byteAccess = buffer.as<::Windows::Storage::Streams::IBufferByteAccess>();
-        uint8_t* data{ nullptr };
-        winrt::check_hresult(byteAccess->Buffer(&data));
-        return data;
-    }
-
-    void MainWindow::WriteDisplayPixel(uint8_t* data, int32_t displayWidth, int32_t dx, int32_t dy)
-    {
-        const size_t i = (static_cast<size_t>(dy) * displayWidth + dx) * 4;
-
-        uint8_t b, g, r;
-        if ((dx % m_zoom == 0) || (dy % m_zoom == 0))
+        if (m_toolKind == ToolKind::Select)
         {
-            // Grid line.
-            b = g = r = 0xA0;
-        }
-        else
-        {
-            const int32_t lx = dx / m_zoom;
-            const int32_t ly = dy / m_zoom;
-            const winrt::Windows::UI::Color c = m_context.GetPixel(lx, ly);
-            if (c.A == 0)
+            if (!left)
             {
-                // Transparency checkerboard.
-                const bool light = ((((dx / k_checkerCell) + (dy / k_checkerCell)) & 1) == 0);
-                b = g = r = light ? 0xFF : 0xC8;
+                return;
+            }
+
+            int32_t px, py;
+            PointerToPixelClamped(e, px, py);
+            CanvasImage().CapturePointer(e.Pointer());
+
+            if (InsideSelection(px, py))
+            {
+                LiftSelection();
+                m_moving = true;
+                m_moveAnchorX = px;
+                m_moveAnchorY = py;
+                m_moveDX = 0;
+                m_moveDY = 0;
             }
             else
             {
-                b = c.B;
-                g = c.G;
-                r = c.R;
+                m_selecting = true;
+                m_selAnchorX = px;
+                m_selAnchorY = py;
+                SetSelectionFromPoints(px, py, px, py);
             }
-        }
-
-        data[i + 0] = b;
-        data[i + 1] = g;
-        data[i + 2] = r;
-        data[i + 3] = 0xFF;
-    }
-
-    void MainWindow::RenderAll()
-    {
-        if (m_display == nullptr)
-        {
+            Render();
             return;
         }
 
-        const int32_t dw = m_display.PixelWidth();
-        const int32_t dh = m_display.PixelHeight();
-        uint8_t* data = DisplayData();
-
-        for (int32_t dy = 0; dy < dh; ++dy)
+        if (IsShapeTool(m_toolKind) && left)
         {
-            for (int32_t dx = 0; dx < dw; ++dx)
-            {
-                WriteDisplayPixel(data, dw, dx, dy);
-            }
-        }
-
-        m_display.Invalidate();
-    }
-
-    void MainWindow::RenderPixel(int32_t lx, int32_t ly)
-    {
-        if (m_display == nullptr)
-        {
+            PointerToPixelClamped(e, m_shapeStartX, m_shapeStartY);
+            m_shapeCurX = m_shapeStartX;
+            m_shapeCurY = m_shapeStartY;
+            m_shapeActive = true;
+            CanvasImage().CapturePointer(e.Pointer());
+            Render();
             return;
         }
 
-        const int32_t dw = m_display.PixelWidth();
-        const int32_t dh = m_display.PixelHeight();
-        uint8_t* data = DisplayData();
+        DrawFromPointer(e);
+    }
 
-        const int32_t x0 = lx * m_zoom;
-        const int32_t y0 = ly * m_zoom;
-
-        // Redraw the pixel's block including its shared grid lines.
-        for (int32_t dy = y0; dy <= y0 + m_zoom && dy < dh; ++dy)
+    void MainWindow::OnCanvasPointerMoved(IInspectable const&, PointerRoutedEventArgs const& e)
+    {
+        if (m_moving)
         {
-            for (int32_t dx = x0; dx <= x0 + m_zoom && dx < dw; ++dx)
-            {
-                WriteDisplayPixel(data, dw, dx, dy);
-            }
+            int32_t px, py;
+            PointerToPixelClamped(e, px, py);
+            m_moveDX = px - m_moveAnchorX;
+            m_moveDY = py - m_moveAnchorY;
+            Render();
+            StatusText().Text(L"x: " + winrt::to_hstring(px) + L"  y: " + winrt::to_hstring(py));
+            return;
         }
 
-        m_display.Invalidate();
+        if (m_selecting)
+        {
+            int32_t px, py;
+            PointerToPixelClamped(e, px, py);
+            SetSelectionFromPoints(m_selAnchorX, m_selAnchorY, px, py);
+            Render();
+            StatusText().Text(L"selection " + winrt::to_hstring(m_selW) + L" x " + winrt::to_hstring(m_selH));
+            return;
+        }
+
+        if (m_shapeActive)
+        {
+            PointerToPixelClamped(e, m_shapeCurX, m_shapeCurY);
+            Render();
+            StatusText().Text(L"x: " + winrt::to_hstring(m_shapeCurX) + L"  y: " + winrt::to_hstring(m_shapeCurY));
+            return;
+        }
+
+        DrawFromPointer(e);
+    }
+
+    void MainWindow::OnCanvasPointerReleased(IInspectable const&, PointerRoutedEventArgs const& e)
+    {
+        if (m_moving)
+        {
+            int32_t px, py;
+            PointerToPixelClamped(e, px, py);
+            m_moveDX = px - m_moveAnchorX;
+            m_moveDY = py - m_moveAnchorY;
+            StampFloating(m_selX + m_moveDX, m_selY + m_moveDY);
+            m_selX += m_moveDX;
+            m_selY += m_moveDY;
+            m_moving = false;
+            m_moveDX = 0;
+            m_moveDY = 0;
+            m_floatPixels.clear();
+            CanvasImage().ReleasePointerCapture(e.Pointer());
+            Render();
+            return;
+        }
+
+        if (m_selecting)
+        {
+            m_selecting = false;
+            // A click without a drag deselects.
+            if (m_selW <= 1 && m_selH <= 1)
+            {
+                m_hasSelection = false;
+            }
+            CanvasImage().ReleasePointerCapture(e.Pointer());
+            Render();
+            return;
+        }
+
+        if (m_shapeActive)
+        {
+            int32_t px, py;
+            PointerToPixelClamped(e, px, py);
+            m_shapeActive = false;
+            CanvasImage().ReleasePointerCapture(e.Pointer());
+            CommitShape(px, py);
+            return;
+        }
     }
 
     void MainWindow::DrawFromPointer(PointerRoutedEventArgs const& e)
@@ -421,7 +333,6 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
-        // Right button always erases, regardless of the selected tool.
         ToolKind kind = m_toolKind;
         winrt::IconMaster::ITool tool = m_currentTool;
         if (right && !left)
@@ -432,22 +343,363 @@ namespace winrt::IconMaster::implementation
 
         tool.Draw(m_context, lx, ly);
 
-        switch (kind)
+        if (kind == ToolKind::Eyedropper)
         {
-        case ToolKind::Fill:
-            RenderAll();
-            break;
-        case ToolKind::Eyedropper:
-            // No pixel changed; reflect the picked colour in the palette.
             m_suppressColorSync = true;
             ColorPickerControl().Color(m_context.Color());
             m_suppressColorSync = false;
-            break;
-        default:
-            RenderPixel(lx, ly);
-            break;
+        }
+        else
+        {
+            Render();
         }
 
         StatusText().Text(L"x: " + winrt::to_hstring(lx) + L"  y: " + winrt::to_hstring(ly));
+    }
+
+    void MainWindow::CommitShape(int32_t x1, int32_t y1)
+    {
+        if (m_currentShape == nullptr)
+        {
+            return;
+        }
+
+        const winrt::Windows::UI::Color color = m_context.Color();
+        auto points = m_currentShape.Rasterize(m_shapeStartX, m_shapeStartY, x1, y1);
+        for (auto const& p : points)
+        {
+            m_context.SetPixel(p.X, p.Y, color);
+        }
+        Render();
+    }
+
+    // ---- Selection / clipboard ---------------------------------------------
+
+    bool MainWindow::InsideSelection(int32_t px, int32_t py) const
+    {
+        return m_hasSelection &&
+               px >= m_selX && px < m_selX + m_selW &&
+               py >= m_selY && py < m_selY + m_selH;
+    }
+
+    void MainWindow::SetSelectionFromPoints(int32_t ax, int32_t ay, int32_t bx, int32_t by)
+    {
+        const int32_t left = std::min(ax, bx);
+        const int32_t top = std::min(ay, by);
+        const int32_t right = std::max(ax, bx);
+        const int32_t bottom = std::max(ay, by);
+        m_selX = left;
+        m_selY = top;
+        m_selW = right - left + 1;
+        m_selH = bottom - top + 1;
+        m_hasSelection = true;
+    }
+
+    void MainWindow::ClearRegion(int32_t x, int32_t y, int32_t w, int32_t h)
+    {
+        for (int32_t j = 0; j < h; ++j)
+        {
+            for (int32_t i = 0; i < w; ++i)
+            {
+                m_context.SetPixel(x + i, y + j, kTransparent);
+            }
+        }
+    }
+
+    void MainWindow::LiftSelection()
+    {
+        m_floatW = m_selW;
+        m_floatH = m_selH;
+        m_floatPixels.assign(static_cast<size_t>(m_floatW) * m_floatH, kTransparent);
+        for (int32_t j = 0; j < m_floatH; ++j)
+        {
+            for (int32_t i = 0; i < m_floatW; ++i)
+            {
+                m_floatPixels[static_cast<size_t>(j) * m_floatW + i] = m_context.GetPixel(m_selX + i, m_selY + j);
+            }
+        }
+        ClearRegion(m_selX, m_selY, m_selW, m_selH);
+    }
+
+    void MainWindow::StampFloating(int32_t atX, int32_t atY)
+    {
+        for (int32_t j = 0; j < m_floatH; ++j)
+        {
+            for (int32_t i = 0; i < m_floatW; ++i)
+            {
+                const winrt::Windows::UI::Color c = m_floatPixels[static_cast<size_t>(j) * m_floatW + i];
+                if (c.A > 0)
+                {
+                    m_context.SetPixel(atX + i, atY + j, c);
+                }
+            }
+        }
+    }
+
+    void MainWindow::OnSelectAll(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (m_context == nullptr)
+        {
+            return;
+        }
+        m_hasSelection = true;
+        m_selX = 0;
+        m_selY = 0;
+        m_selW = m_context.PixelWidth();
+        m_selH = m_context.PixelHeight();
+        Render();
+    }
+
+    void MainWindow::OnDeselect(IInspectable const&, RoutedEventArgs const&)
+    {
+        m_hasSelection = false;
+        Render();
+    }
+
+    void MainWindow::OnCopy(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (!m_hasSelection)
+        {
+            return;
+        }
+        m_clipW = m_selW;
+        m_clipH = m_selH;
+        m_clipPixels.assign(static_cast<size_t>(m_clipW) * m_clipH, kTransparent);
+        for (int32_t j = 0; j < m_clipH; ++j)
+        {
+            for (int32_t i = 0; i < m_clipW; ++i)
+            {
+                m_clipPixels[static_cast<size_t>(j) * m_clipW + i] = m_context.GetPixel(m_selX + i, m_selY + j);
+            }
+        }
+        m_hasClip = true;
+    }
+
+    void MainWindow::OnCut(IInspectable const& sender, RoutedEventArgs const& args)
+    {
+        if (!m_hasSelection)
+        {
+            return;
+        }
+        OnCopy(sender, args);
+        ClearRegion(m_selX, m_selY, m_selW, m_selH);
+        Render();
+    }
+
+    void MainWindow::OnPaste(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (!m_hasClip)
+        {
+            return;
+        }
+        const int32_t tx = m_hasSelection ? m_selX : 0;
+        const int32_t ty = m_hasSelection ? m_selY : 0;
+        for (int32_t j = 0; j < m_clipH; ++j)
+        {
+            for (int32_t i = 0; i < m_clipW; ++i)
+            {
+                const winrt::Windows::UI::Color c = m_clipPixels[static_cast<size_t>(j) * m_clipW + i];
+                if (c.A > 0)
+                {
+                    m_context.SetPixel(tx + i, ty + j, c);
+                }
+            }
+        }
+        m_hasSelection = true;
+        m_selX = tx;
+        m_selY = ty;
+        m_selW = m_clipW;
+        m_selH = m_clipH;
+        Render();
+    }
+
+    void MainWindow::OnDelete(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (!m_hasSelection)
+        {
+            return;
+        }
+        ClearRegion(m_selX, m_selY, m_selW, m_selH);
+        Render();
+    }
+
+    // ---- Rendering ----------------------------------------------------------
+
+    void MainWindow::RebuildDisplay()
+    {
+        if (m_context == nullptr)
+        {
+            return;
+        }
+
+        // One extra pixel so the closing grid line on the right/bottom is drawn.
+        const int32_t dw = m_context.PixelWidth() * m_zoom + 1;
+        const int32_t dh = m_context.PixelHeight() * m_zoom + 1;
+
+        m_display = WriteableBitmap(dw, dh);
+        CanvasImage().Source(m_display);
+        Render();
+
+        ZoomText().Text(winrt::to_hstring(m_zoom * 100) + L"%");
+    }
+
+    uint8_t* MainWindow::DisplayData()
+    {
+        auto buffer = m_display.PixelBuffer();
+        auto byteAccess = buffer.as<::Windows::Storage::Streams::IBufferByteAccess>();
+        uint8_t* data{ nullptr };
+        winrt::check_hresult(byteAccess->Buffer(&data));
+        return data;
+    }
+
+    void MainWindow::WriteDisplayPixel(uint8_t* data, int32_t displayWidth, int32_t dx, int32_t dy)
+    {
+        const size_t i = (static_cast<size_t>(dy) * displayWidth + dx) * 4;
+
+        uint8_t b, g, r;
+        if ((dx % m_zoom == 0) || (dy % m_zoom == 0))
+        {
+            b = g = r = 0xA0; // grid line
+        }
+        else
+        {
+            const int32_t lx = dx / m_zoom;
+            const int32_t ly = dy / m_zoom;
+            const winrt::Windows::UI::Color c = m_context.GetPixel(lx, ly);
+            if (c.A == 0)
+            {
+                const bool light = ((((dx / k_checkerCell) + (dy / k_checkerCell)) & 1) == 0);
+                b = g = r = light ? 0xFF : 0xC8;
+            }
+            else
+            {
+                b = c.B;
+                g = c.G;
+                r = c.R;
+            }
+        }
+
+        data[i + 0] = b;
+        data[i + 1] = g;
+        data[i + 2] = r;
+        data[i + 3] = 0xFF;
+    }
+
+    void MainWindow::PaintPreviewBlock(uint8_t* data, int32_t displayWidth, int32_t displayHeight, int32_t lx, int32_t ly, winrt::Windows::UI::Color const& color)
+    {
+        const int32_t x0 = lx * m_zoom;
+        const int32_t y0 = ly * m_zoom;
+
+        for (int32_t dy = y0 + 1; dy < y0 + m_zoom && dy < displayHeight; ++dy)
+        {
+            for (int32_t dx = x0 + 1; dx < x0 + m_zoom && dx < displayWidth; ++dx)
+            {
+                const size_t i = (static_cast<size_t>(dy) * displayWidth + dx) * 4;
+                data[i + 0] = color.B;
+                data[i + 1] = color.G;
+                data[i + 2] = color.R;
+                data[i + 3] = 0xFF;
+            }
+        }
+    }
+
+    void MainWindow::RenderBase(uint8_t* data, int32_t dw, int32_t dh)
+    {
+        for (int32_t dy = 0; dy < dh; ++dy)
+        {
+            for (int32_t dx = 0; dx < dw; ++dx)
+            {
+                WriteDisplayPixel(data, dw, dx, dy);
+            }
+        }
+    }
+
+    void MainWindow::OverlayShapePreview(uint8_t* data, int32_t dw, int32_t dh)
+    {
+        if (m_currentShape == nullptr)
+        {
+            return;
+        }
+        const winrt::Windows::UI::Color color = m_context.Color();
+        if (color.A == 0)
+        {
+            return;
+        }
+        auto points = m_currentShape.Rasterize(m_shapeStartX, m_shapeStartY, m_shapeCurX, m_shapeCurY);
+        for (auto const& p : points)
+        {
+            PaintPreviewBlock(data, dw, dh, p.X, p.Y, color);
+        }
+    }
+
+    void MainWindow::OverlayFloating(uint8_t* data, int32_t dw, int32_t dh)
+    {
+        const int32_t w = m_context.PixelWidth();
+        const int32_t h = m_context.PixelHeight();
+        for (int32_t j = 0; j < m_floatH; ++j)
+        {
+            for (int32_t i = 0; i < m_floatW; ++i)
+            {
+                const winrt::Windows::UI::Color c = m_floatPixels[static_cast<size_t>(j) * m_floatW + i];
+                if (c.A == 0)
+                {
+                    continue;
+                }
+                const int32_t tx = m_selX + m_moveDX + i;
+                const int32_t ty = m_selY + m_moveDY + j;
+                if (tx < 0 || tx >= w || ty < 0 || ty >= h)
+                {
+                    continue;
+                }
+                PaintPreviewBlock(data, dw, dh, tx, ty, c);
+            }
+        }
+    }
+
+    void MainWindow::OverlaySelectionBorder(uint8_t* data, int32_t dw, int32_t dh)
+    {
+        const int32_t sx = m_selX + (m_moving ? m_moveDX : 0);
+        const int32_t sy = m_selY + (m_moving ? m_moveDY : 0);
+        const int32_t x0 = sx * m_zoom;
+        const int32_t y0 = sy * m_zoom;
+        const int32_t x1 = (sx + m_selW) * m_zoom;
+        const int32_t y1 = (sy + m_selH) * m_zoom;
+
+        auto put = [&](int32_t dx, int32_t dy)
+        {
+            if (dx < 0 || dx >= dw || dy < 0 || dy >= dh)
+            {
+                return;
+            }
+            const size_t i = (static_cast<size_t>(dy) * dw + dx) * 4;
+            const bool black = ((((dx + dy) / 4) & 1) == 0);
+            const uint8_t v = black ? 0x00 : 0xFF;
+            data[i + 0] = v;
+            data[i + 1] = v;
+            data[i + 2] = v;
+            data[i + 3] = 0xFF;
+        };
+
+        for (int32_t dx = x0; dx <= x1; ++dx) { put(dx, y0); put(dx, y1); }
+        for (int32_t dy = y0; dy <= y1; ++dy) { put(x0, dy); put(x1, dy); }
+    }
+
+    void MainWindow::Render()
+    {
+        if (m_display == nullptr)
+        {
+            return;
+        }
+
+        const int32_t dw = m_display.PixelWidth();
+        const int32_t dh = m_display.PixelHeight();
+        uint8_t* data = DisplayData();
+
+        RenderBase(data, dw, dh);
+        if (m_shapeActive)   { OverlayShapePreview(data, dw, dh); }
+        if (m_moving)        { OverlayFloating(data, dw, dh); }
+        if (m_hasSelection)  { OverlaySelectionBorder(data, dw, dh); }
+
+        m_display.Invalidate();
     }
 }

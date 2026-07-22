@@ -33,6 +33,40 @@
                          HorizontalAlignment="Stretch" Checked="OnToolSelected" />
             <RadioButton Content="Ellipse" Tag="ellipse" GroupName="tools"
                          HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Content="Select" Tag="select" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+
+            <TextBlock Text="Selection" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
+            <Button Content="Select all" Click="OnSelectAll" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="A" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Deselect" Click="OnDeselect" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="Escape" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Copy" Click="OnCopy" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="C" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Cut" Click="OnCut" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="X" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Paste" Click="OnPaste" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="V" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Delete" Click="OnDelete" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="Delete" />
+                </Button.KeyboardAccelerators>
+            </Button>
         </StackPanel>
 
         <!-- Canvas area -->

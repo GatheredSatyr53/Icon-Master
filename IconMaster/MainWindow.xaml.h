@@ -3,6 +3,7 @@
 #include "MainWindow.g.h"
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
+#include <vector>
 
 namespace winrt::IconMaster::implementation
 {
@@ -19,24 +20,42 @@ namespace winrt::IconMaster::implementation
         void OnCanvasPointerMoved(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void OnCanvasPointerReleased(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
 
-    private:
-        enum class ToolKind { Pen, Eraser, Fill, Eyedropper, Line, Rectangle, Ellipse };
+        void OnSelectAll(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnDeselect(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnCopy(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnCut(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnPaste(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnDelete(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
+    private:
+        enum class ToolKind { Pen, Eraser, Fill, Eyedropper, Line, Rectangle, Ellipse, Select };
+
+        // Rendering.
         void RebuildDisplay();
-        void RenderAll();
-        void RenderPixel(int32_t lx, int32_t ly);
+        void Render();
+        void RenderBase(uint8_t* data, int32_t dw, int32_t dh);
         void WriteDisplayPixel(uint8_t* data, int32_t displayWidth, int32_t dx, int32_t dy);
+        void PaintPreviewBlock(uint8_t* data, int32_t displayWidth, int32_t displayHeight, int32_t lx, int32_t ly, winrt::Windows::UI::Color const& color);
+        void OverlayShapePreview(uint8_t* data, int32_t dw, int32_t dh);
+        void OverlayFloating(uint8_t* data, int32_t dw, int32_t dh);
+        void OverlaySelectionBorder(uint8_t* data, int32_t dw, int32_t dh);
         uint8_t* DisplayData();
         void SetZoom(int32_t zoom);
-        void DrawFromPointer(winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
-        winrt::IconMaster::ITool ToolForKind(ToolKind kind);
 
+        // Tools.
+        winrt::IconMaster::ITool ToolForKind(ToolKind kind);
         static bool IsShapeTool(ToolKind kind);
         winrt::IconMaster::IShapeTool ShapeToolForKind(ToolKind kind);
         void PointerToPixelClamped(winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args, int32_t& lx, int32_t& ly);
-        void OverlayShapePreview(int32_t x1, int32_t y1);
-        void PaintPreviewBlock(uint8_t* data, int32_t displayWidth, int32_t displayHeight, int32_t lx, int32_t ly, winrt::Windows::UI::Color const& color);
+        void DrawFromPointer(winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void CommitShape(int32_t x1, int32_t y1);
+
+        // Selection / clipboard.
+        bool InsideSelection(int32_t px, int32_t py) const;
+        void SetSelectionFromPoints(int32_t ax, int32_t ay, int32_t bx, int32_t by);
+        void LiftSelection();
+        void StampFloating(int32_t atX, int32_t atY);
+        void ClearRegion(int32_t x, int32_t y, int32_t w, int32_t h);
 
         static constexpr int32_t k_canvasSize = 32;
         static constexpr int32_t k_minZoom = 4;
@@ -51,6 +70,36 @@ namespace winrt::IconMaster::implementation
         bool m_shapeActive{ false };
         int32_t m_shapeStartX{ 0 };
         int32_t m_shapeStartY{ 0 };
+        int32_t m_shapeCurX{ 0 };
+        int32_t m_shapeCurY{ 0 };
+
+        // Selection state (pixel-space rectangle).
+        bool m_hasSelection{ false };
+        int32_t m_selX{ 0 };
+        int32_t m_selY{ 0 };
+        int32_t m_selW{ 0 };
+        int32_t m_selH{ 0 };
+
+        // Defining a selection by dragging.
+        bool m_selecting{ false };
+        int32_t m_selAnchorX{ 0 };
+        int32_t m_selAnchorY{ 0 };
+
+        // Moving the selected pixels (floating).
+        bool m_moving{ false };
+        int32_t m_moveAnchorX{ 0 };
+        int32_t m_moveAnchorY{ 0 };
+        int32_t m_moveDX{ 0 };
+        int32_t m_moveDY{ 0 };
+        int32_t m_floatW{ 0 };
+        int32_t m_floatH{ 0 };
+        std::vector<winrt::Windows::UI::Color> m_floatPixels;
+
+        // Clipboard.
+        bool m_hasClip{ false };
+        int32_t m_clipW{ 0 };
+        int32_t m_clipH{ 0 };
+        std::vector<winrt::Windows::UI::Color> m_clipPixels;
 
         winrt::IconMaster::DrawingContext m_context{ nullptr };
         winrt::IconMaster::Pen m_pen{ nullptr };
