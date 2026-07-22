@@ -18,6 +18,10 @@ namespace winrt::IconMaster::implementation
 {
     MainWindow::MainWindow()
     {
+        // Loads the XAML and creates the named elements (CanvasImage, buttons).
+        // Must run before any of them is accessed.
+        InitializeComponent();
+
         m_context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
         m_pen = winrt::IconMaster::Pen();
         m_eraser = winrt::IconMaster::Eraser();
