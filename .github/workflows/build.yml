@@ -28,23 +28,32 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
+      # MSBuild is invoked directly from the VS install (located via vswhere)
+      # instead of via setup-msbuild/setup-nuget, so the workflow depends on no
+      # Node-based actions beyond checkout (avoids the Node 20 deprecation).
+      - name: Restore and build
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vsPath) { throw "No Visual Studio installation with MSBuild was found." }
+          $msbuild = Join-Path $vsPath 'MSBuild\Current\Bin\MSBuild.exe'
+          Write-Host "Using MSBuild: $msbuild"
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v2
+          & $msbuild $env:SOLUTION `
+            /t:Restore `
+            /p:RestorePackagesConfig=true `
+            /p:Configuration=${{ matrix.configuration }} `
+            /p:Platform=${{ matrix.platform }}
+          if ($LASTEXITCODE -ne 0) { throw "Restore failed with exit code $LASTEXITCODE." }
 
-      - name: Restore NuGet packages
-        run: nuget restore $env:SOLUTION
-
-      - name: Build
-        run: >
-          msbuild $env:SOLUTION
-          /m
-          /p:Configuration=${{ matrix.configuration }}
-          /p:Platform=${{ matrix.platform }}
-          /p:GenerateAppxPackageOnBuild=false
-          /p:AppxPackageSigningEnabled=false
-          /verbosity:minimal
+          & $msbuild $env:SOLUTION `
+            /m `
+            /p:Configuration=${{ matrix.configuration }} `
+            /p:Platform=${{ matrix.platform }} `
+            /p:GenerateAppxPackageOnBuild=false `
+            /p:AppxPackageSigningEnabled=false `
+            /verbosity:minimal
+          if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE." }
