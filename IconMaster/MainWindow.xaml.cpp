@@ -38,6 +38,12 @@ namespace winrt::IconMaster::implementation
 {
     MainWindow::MainWindow()
     {
+        // Create the first document BEFORE InitializeComponent: loading the XAML
+        // raises events (e.g. the Pen RadioButton's Checked) that call doc(), so
+        // m_docs must already have an element.
+        m_docs.emplace_back();
+        m_active = 0;
+
         // Loads the XAML and creates the named elements. Must run before any is accessed.
         InitializeComponent();
 
@@ -47,9 +53,6 @@ namespace winrt::IconMaster::implementation
             appWindow.Resize(winrt::Windows::Graphics::SizeInt32{ 1200, 820 });
         }
 
-        // Start with a single document.
-        m_docs.emplace_back();
-        m_active = 0;
         doc().context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
         m_pen = winrt::IconMaster::Pen();
         m_eraser = winrt::IconMaster::Eraser();
