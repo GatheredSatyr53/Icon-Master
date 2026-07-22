@@ -1,0 +1,59 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    # Pin to the VS 2022 image: it ships the v143 toolset and the Windows SDK
+    # (10.0.22621.0) that the project targets. windows-latest has moved to a
+    # newer VS/SDK that the project is not pinned to.
+    runs-on: windows-2022
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+        platform: [x64]
+
+    env:
+      SOLUTION: IconMaster.sln
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # MSBuild is invoked directly from the VS install (located via vswhere)
+      # instead of via setup-msbuild/setup-nuget, so the workflow depends on no
+      # Node-based actions beyond checkout (avoids the Node 20 deprecation).
+      - name: Restore and build
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vsPath) { throw "No Visual Studio installation with MSBuild was found." }
+          $msbuild = Join-Path $vsPath 'MSBuild\Current\Bin\MSBuild.exe'
+          Write-Host "Using MSBuild: $msbuild"
+
+          & $msbuild $env:SOLUTION `
+            /t:Restore `
+            /p:RestorePackagesConfig=true `
+            /p:Configuration=${{ matrix.configuration }} `
+            /p:Platform=${{ matrix.platform }}
+          if ($LASTEXITCODE -ne 0) { throw "Restore failed with exit code $LASTEXITCODE." }
+
+          & $msbuild $env:SOLUTION `
+            /m `
+            /p:Configuration=${{ matrix.configuration }} `
+            /p:Platform=${{ matrix.platform }} `
+            /p:GenerateAppxPackageOnBuild=false `
+            /p:AppxPackageSigningEnabled=false `
+            /verbosity:minimal
+          if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE." }

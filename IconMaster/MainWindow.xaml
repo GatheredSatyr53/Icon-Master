@@ -9,9 +9,40 @@
     mc:Ignorable="d"
     Title="Icon Master">
 
-    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
-        <TextBlock Text="Icon Master" HorizontalAlignment="Center" Style="{StaticResource TitleTextBlockStyle}" />
-        <TextBlock Text="Pixel icon editor — WinUI 3 / C++/WinRT scaffold" HorizontalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
-        <Button x:Name="myButton" Click="myButton_Click" HorizontalAlignment="Center">Click Me</Button>
-    </StackPanel>
+    <Grid RowDefinitions="Auto,*,Auto" Padding="12" RowSpacing="12">
+
+        <!-- Toolbar: tools + colour swatches -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+            <RadioButton x:Name="PenButton" Content="Pen" GroupName="tools" IsChecked="True" Checked="OnToolChanged" />
+            <RadioButton x:Name="EraserButton" Content="Eraser" GroupName="tools" Checked="OnToolChanged" />
+            <AppBarSeparator />
+            <Button Click="OnColorClick" Tag="#FF000000" ToolTipService.ToolTip="Black">
+                <Border Width="20" Height="20" Background="Black" />
+            </Button>
+            <Button Click="OnColorClick" Tag="#FFFFFFFF" ToolTipService.ToolTip="White">
+                <Border Width="20" Height="20" Background="White" BorderBrush="Gray" BorderThickness="1" />
+            </Button>
+            <Button Click="OnColorClick" Tag="#FFE81123" ToolTipService.ToolTip="Red">
+                <Border Width="20" Height="20" Background="#FFE81123" />
+            </Button>
+            <Button Click="OnColorClick" Tag="#FF0078D7" ToolTipService.ToolTip="Blue">
+                <Border Width="20" Height="20" Background="#FF0078D7" />
+            </Button>
+            <Button Click="OnColorClick" Tag="#FF107C10" ToolTipService.ToolTip="Green">
+                <Border Width="20" Height="20" Background="#FF107C10" />
+            </Button>
+        </StackPanel>
+
+        <!-- Canvas -->
+        <Border Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                BorderBrush="Gray" BorderThickness="1" Background="#20808080">
+            <Image x:Name="CanvasImage" Width="512" Height="512"
+                   Stretch="Uniform"
+                   PointerPressed="OnCanvasPointerPressed"
+                   PointerMoved="OnCanvasPointerMoved" />
+        </Border>
+
+        <!-- Status -->
+        <TextBlock x:Name="StatusText" Grid.Row="2" Text="Left button draws, right button erases." />
+    </Grid>
 </Window>

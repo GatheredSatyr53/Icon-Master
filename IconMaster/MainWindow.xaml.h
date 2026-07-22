@@ -8,10 +8,20 @@ namespace winrt::IconMaster::implementation
     {
         MainWindow();
 
-        int32_t MyProperty();
-        void MyProperty(int32_t value);
+        void OnToolChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnColorClick(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnCanvasPointerPressed(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
+        void OnCanvasPointerMoved(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
 
-        void myButton_Click(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+    private:
+        void DrawFromPointer(winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
+
+        static constexpr int32_t k_canvasSize = 32;
+
+        winrt::IconMaster::DrawingContext m_context{ nullptr };
+        winrt::IconMaster::Pen m_pen{ nullptr };
+        winrt::IconMaster::Eraser m_eraser{ nullptr };
+        winrt::IconMaster::ITool m_currentTool{ nullptr };
     };
 }
 

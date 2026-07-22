@@ -1,13 +1,14 @@
 # Icon Master
 
+[![build](https://github.com/GatheredSatyr53/Icon-Master/actions/workflows/build.yml/badge.svg)](https://github.com/GatheredSatyr53/Icon-Master/actions/workflows/build.yml)
+
 Pixel icon editor — a rewrite of the original WPF/C# prototype
 ([Icon-Master-Legacy](https://github.com/GatheredSatyr53/Icon-Master-Legacy))
 on **WinUI 3** and **C++/WinRT**.
 
-> **Status:** project scaffolding only. This is a minimal, known-good WinUI 3
-> desktop skeleton (blank window). Editor functionality — canvas, pixel grid,
-> zoom, Pen/Eraser tools, colour selection, file open/save — is being ported
-> from the legacy project in follow-up steps.
+> **Status:** early work in progress. The app builds and runs, and you can
+> draw on a pixel canvas with the Pen and Eraser tools and pick a colour. Pixel
+> grid, zoom, tabs, and file open/save are still to come.
 
 ## Requirements
 
@@ -42,7 +43,10 @@ msbuild IconMaster.sln /restore /p:Configuration=Debug /p:Platform=x64
 IconMaster.sln
 IconMaster/
 ├─ App.xaml / App.xaml.h / App.xaml.cpp      Application entry point
-├─ MainWindow.xaml / .idl / .h / .cpp         Main window (blank scaffold)
+├─ MainWindow.xaml / .idl / .h / .cpp         Main window: canvas + toolbar
+├─ Editor.idl                                 WinRT contracts for the editor core
+├─ DrawingContext.h / .cpp                    Pixel surface (WriteableBitmap + colour)
+├─ Pen.h / .cpp, Eraser.h / .cpp             ITool implementations
 ├─ pch.h / pch.cpp                            Precompiled header
 ├─ app.manifest                               DPI awareness / supported OS
 ├─ Package.appxmanifest                       MSIX package manifest
@@ -50,14 +54,20 @@ IconMaster/
 └─ Assets/                                    Placeholder logo images
 ```
 
+The editor core is modelled as Windows Runtime classes (declared in
+`Editor.idl`): `DrawingContext` owns the bitmap and current colour, and the
+`ITool` interface is implemented by `Pen` and `Eraser`. `MainWindow` holds a
+`DrawingContext` and the active tool and routes pointer input to it.
+
 > The images in `Assets/` are solid-colour placeholders so the package builds;
 > replace them with real artwork before shipping.
 
 ## Roadmap
 
-- [ ] Pixel canvas with a visible grid and zoom
-- [ ] Tool system (Pen, Eraser) wired to the UI
-- [ ] Colour selection
+- [x] Pixel canvas backed by a `WriteableBitmap`
+- [x] Tool system (Pen, Eraser) wired to the UI
+- [x] Colour selection
+- [ ] Visible pixel grid and zoom (nearest-neighbour scaling)
 - [ ] Multiple documents (tabs)
 - [ ] File open / save (PNG, ICO)
 - [ ] Undo / redo
