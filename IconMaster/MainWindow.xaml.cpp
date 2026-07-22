@@ -667,6 +667,125 @@ namespace winrt::IconMaster::implementation
         StatusText().Text(L"Opened " + file.Name());
     }
 
+    std::vector<uint8_t> MainWindow::ScaleCanvas(int32_t target)
+    {
+        const int32_t w = m_context.PixelWidth();
+        const int32_t h = m_context.PixelHeight();
+        std::vector<uint8_t> out(static_cast<size_t>(target) * target * 4);
+        for (int32_t y = 0; y < target; ++y)
+        {
+            for (int32_t x = 0; x < target; ++x)
+            {
+                const int32_t sx = x * w / target; // nearest-neighbour
+                const int32_t sy = y * h / target;
+                const auto c = m_context.GetPixel(sx, sy);
+                const size_t i = (static_cast<size_t>(y) * target + x) * 4;
+                out[i + 0] = c.B;
+                out[i + 1] = c.G;
+                out[i + 2] = c.R;
+                out[i + 3] = c.A;
+            }
+        }
+        return out;
+    }
+
+    winrt::fire_and_forget MainWindow::OnExportIco(IInspectable const&, RoutedEventArgs const&)
+    {
+        auto lifetime = get_strong();
+        if (m_context == nullptr)
+        {
+            co_return;
+        }
+
+        winrt::Windows::Storage::Pickers::FileSavePicker picker;
+        {
+            auto windowNative = this->try_as<::IWindowNative>();
+            HWND hwnd{};
+            winrt::check_hresult(windowNative->get_WindowHandle(&hwnd));
+            auto initWithWindow = picker.as<::IInitializeWithWindow>();
+            winrt::check_hresult(initWithWindow->Initialize(hwnd));
+        }
+        picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
+        picker.SuggestedFileName(L"icon");
+        picker.FileTypeChoices().Insert(L"Windows icon", winrt::single_threaded_vector<winrt::hstring>({ L".ico" }));
+
+        auto file = co_await picker.PickSaveFileAsync();
+        if (file == nullptr)
+        {
+            co_return;
+        }
+
+        // Render each icon size to a PNG blob (ICO may embed PNG-compressed images).
+        const int32_t sizes[] = { 16, 32, 48, 256 };
+        std::vector<std::vector<uint8_t>> pngs;
+        for (int32_t s : sizes)
+        {
+            const std::vector<uint8_t> bytes = ScaleCanvas(s);
+
+            winrt::Windows::Storage::Streams::InMemoryRandomAccessStream mem;
+            auto encoder = co_await winrt::Windows::Graphics::Imaging::BitmapEncoder::CreateAsync(
+                winrt::Windows::Graphics::Imaging::BitmapEncoder::PngEncoderId(), mem);
+            encoder.SetPixelData(
+                winrt::Windows::Graphics::Imaging::BitmapPixelFormat::Bgra8,
+                winrt::Windows::Graphics::Imaging::BitmapAlphaMode::Straight,
+                static_cast<uint32_t>(s), static_cast<uint32_t>(s),
+                96.0, 96.0, bytes);
+            co_await encoder.FlushAsync();
+
+            const uint32_t len = static_cast<uint32_t>(mem.Size());
+            winrt::Windows::Storage::Streams::DataReader reader(mem.GetInputStreamAt(0));
+            co_await reader.LoadAsync(len);
+            std::vector<uint8_t> png(len);
+            reader.ReadBytes(png);
+            pngs.push_back(std::move(png));
+        }
+
+        const auto putU16 = [](std::vector<uint8_t>& v, uint16_t x)
+        {
+            v.push_back(static_cast<uint8_t>(x & 0xFF));
+            v.push_back(static_cast<uint8_t>((x >> 8) & 0xFF));
+        };
+        const auto putU32 = [](std::vector<uint8_t>& v, uint32_t x)
+        {
+            v.push_back(static_cast<uint8_t>(x & 0xFF));
+            v.push_back(static_cast<uint8_t>((x >> 8) & 0xFF));
+            v.push_back(static_cast<uint8_t>((x >> 16) & 0xFF));
+            v.push_back(static_cast<uint8_t>((x >> 24) & 0xFF));
+        };
+
+        const uint16_t count = static_cast<uint16_t>(sizeof(sizes) / sizeof(sizes[0]));
+        std::vector<uint8_t> ico;
+
+        // ICONDIR
+        putU16(ico, 0); // reserved
+        putU16(ico, 1); // type = icon
+        putU16(ico, count);
+
+        // ICONDIRENTRY[] — image data starts after the header + all entries.
+        uint32_t offset = 6u + 16u * count;
+        for (size_t k = 0; k < pngs.size(); ++k)
+        {
+            const int32_t s = sizes[k];
+            ico.push_back(static_cast<uint8_t>(s >= 256 ? 0 : s)); // width (0 => 256)
+            ico.push_back(static_cast<uint8_t>(s >= 256 ? 0 : s)); // height
+            ico.push_back(0);  // colour count
+            ico.push_back(0);  // reserved
+            putU16(ico, 1);    // colour planes
+            putU16(ico, 32);   // bits per pixel
+            putU32(ico, static_cast<uint32_t>(pngs[k].size()));
+            putU32(ico, offset);
+            offset += static_cast<uint32_t>(pngs[k].size());
+        }
+
+        for (auto const& png : pngs)
+        {
+            ico.insert(ico.end(), png.begin(), png.end());
+        }
+
+        co_await winrt::Windows::Storage::FileIO::WriteBytesAsync(file, ico);
+        StatusText().Text(L"Exported " + file.Name() + L" (16, 32, 48, 256)");
+    }
+
     // ---- Rendering ----------------------------------------------------------
 
     void MainWindow::RebuildDisplay()

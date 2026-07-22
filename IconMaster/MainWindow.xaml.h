@@ -30,9 +30,11 @@ namespace winrt::IconMaster::implementation
         void OnNew(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnOpen(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnSave(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        winrt::fire_and_forget OnExportIco(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
     private:
         void LoadContext(winrt::IconMaster::DrawingContext const& context, int32_t fitZoom);
+        std::vector<uint8_t> ScaleCanvas(int32_t target); // nearest-neighbour, BGRA8
         enum class ToolKind { Pen, Eraser, Fill, Eyedropper, Line, Rectangle, Ellipse, Select };
 
         // Rendering.
