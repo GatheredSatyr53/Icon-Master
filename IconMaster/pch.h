@@ -1,4 +1,9 @@
 #pragma once
+// Prevent <windows.h> from defining min()/max() macros, which clash with
+// std::min / std::max used in the drawing tools.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <unknwn.h>
 #include <restrictederrorinfo.h>

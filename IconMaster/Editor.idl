@@ -1,6 +1,6 @@
 namespace IconMaster
 {
-    // A drawing surface: a pixel bitmap plus the currently selected colour.
+    // A drawing surface: the logical pixel grid plus the currently selected colour.
     runtimeclass DrawingContext
     {
         DrawingContext(Int32 width, Int32 height);
@@ -10,20 +10,23 @@ namespace IconMaster
 
         Windows.UI.Color Color;
 
-        // The bitmap backing this context, usable directly as an Image source.
-        Microsoft.UI.Xaml.Media.Imaging.WriteableBitmap Bitmap{ get; };
-
+        Windows.UI.Color GetPixel(Int32 x, Int32 y);
         void SetPixel(Int32 x, Int32 y, Windows.UI.Color color);
         void Clear(Windows.UI.Color color);
-
-        // Push pending pixel writes to the screen. Call once after a batch.
-        void Invalidate();
     }
 
-    // A drawing tool. Given a context and a pixel coordinate, it mutates the bitmap.
+    // A pixel tool. Given a context and a pixel coordinate, it mutates the grid
+    // (or, for the eyedropper, the context's current colour).
     interface ITool
     {
         void Draw(DrawingContext context, Int32 x, Int32 y);
+    }
+
+    // A shape tool defined by two corner points. Returns the pixels the shape
+    // covers, so callers can preview it non-destructively before committing.
+    interface IShapeTool
+    {
+        Windows.Foundation.Collections.IVector<Windows.Graphics.PointInt32> Rasterize(Int32 x0, Int32 y0, Int32 x1, Int32 y1);
     }
 
     // Paints the context's current colour at the pixel.
@@ -38,5 +41,40 @@ namespace IconMaster
     runtimeclass Eraser : ITool
     {
         Eraser();
+    }
+
+    // Flood-fills the contiguous region of same-coloured pixels with the current colour.
+    [default_interface]
+    runtimeclass Fill : ITool
+    {
+        Fill();
+    }
+
+    // Picks the colour under the pixel into the context's current colour.
+    [default_interface]
+    runtimeclass Eyedropper : ITool
+    {
+        Eyedropper();
+    }
+
+    // A straight line between the two points (Bresenham).
+    [default_interface]
+    runtimeclass LineTool : IShapeTool
+    {
+        LineTool();
+    }
+
+    // A rectangle outline between the two corners.
+    [default_interface]
+    runtimeclass RectangleTool : IShapeTool
+    {
+        RectangleTool();
+    }
+
+    // An ellipse outline inscribed in the bounding box of the two corners.
+    [default_interface]
+    runtimeclass EllipseTool : IShapeTool
+    {
+        EllipseTool();
     }
 }

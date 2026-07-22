@@ -9,40 +9,182 @@
     mc:Ignorable="d"
     Title="Icon Master">
 
-    <Grid RowDefinitions="Auto,*,Auto" Padding="12" RowSpacing="12">
+    <Grid Padding="12" ColumnSpacing="12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
 
-        <!-- Toolbar: tools + colour swatches -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
-            <RadioButton x:Name="PenButton" Content="Pen" GroupName="tools" IsChecked="True" Checked="OnToolChanged" />
-            <RadioButton x:Name="EraserButton" Content="Eraser" GroupName="tools" Checked="OnToolChanged" />
-            <AppBarSeparator />
-            <Button Click="OnColorClick" Tag="#FF000000" ToolTipService.ToolTip="Black">
-                <Border Width="20" Height="20" Background="Black" />
+        <!-- Toolbox -->
+        <ScrollViewer Grid.Column="0"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollMode="Disabled"
+                      HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="6" Width="108">
+            <TextBlock Text="File" Style="{StaticResource CaptionTextBlockStyle}" />
+            <Button Content="New" Click="OnNew" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="N" />
+                </Button.KeyboardAccelerators>
             </Button>
-            <Button Click="OnColorClick" Tag="#FFFFFFFF" ToolTipService.ToolTip="White">
-                <Border Width="20" Height="20" Background="White" BorderBrush="Gray" BorderThickness="1" />
+            <Button Content="Open&#x2026;" Click="OnOpen" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="O" />
+                </Button.KeyboardAccelerators>
             </Button>
-            <Button Click="OnColorClick" Tag="#FFE81123" ToolTipService.ToolTip="Red">
-                <Border Width="20" Height="20" Background="#FFE81123" />
+            <Button Content="Save&#x2026;" Click="OnSave" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="S" />
+                </Button.KeyboardAccelerators>
             </Button>
-            <Button Click="OnColorClick" Tag="#FF0078D7" ToolTipService.ToolTip="Blue">
-                <Border Width="20" Height="20" Background="#FF0078D7" />
+            <Button Content="Export ICO&#x2026;" Click="OnExportIco" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="E" />
+                </Button.KeyboardAccelerators>
             </Button>
-            <Button Click="OnColorClick" Tag="#FF107C10" ToolTipService.ToolTip="Green">
-                <Border Width="20" Height="20" Background="#FF107C10" />
+
+            <TextBlock Text="Tools" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
+            <RadioButton Content="Pen" Tag="pen" GroupName="tools" IsChecked="True"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Content="Eraser" Tag="eraser" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Content="Fill" Tag="fill" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Content="Pick" Tag="eyedropper" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Content="Line" Tag="line" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Content="Rectangle" Tag="rectangle" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Content="Ellipse" Tag="ellipse" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Content="Select" Tag="select" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+
+            <TextBlock Text="Selection" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
+            <Button Content="Select all" Click="OnSelectAll" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="A" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Deselect" Click="OnDeselect" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="Escape" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Copy" Click="OnCopy" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="C" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Cut" Click="OnCut" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="X" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Paste" Click="OnPaste" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="V" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Delete" Click="OnDelete" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="Delete" />
+                </Button.KeyboardAccelerators>
             </Button>
         </StackPanel>
+        </ScrollViewer>
 
-        <!-- Canvas -->
-        <Border Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                BorderBrush="Gray" BorderThickness="1" Background="#20808080">
-            <Image x:Name="CanvasImage" Width="512" Height="512"
-                   Stretch="Uniform"
-                   PointerPressed="OnCanvasPointerPressed"
-                   PointerMoved="OnCanvasPointerMoved" />
-        </Border>
+        <!-- Canvas area -->
+        <Grid Grid.Column="1" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-        <!-- Status -->
-        <TextBlock x:Name="StatusText" Grid.Row="2" Text="Left button draws, right button erases." />
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button Content="&#x2212;" Click="OnZoomOut" ToolTipService.ToolTip="Zoom out" />
+                <TextBlock x:Name="ZoomText" VerticalAlignment="Center" MinWidth="52" TextAlignment="Center" Text="1600%" />
+                <Button Content="&#x2b;" Click="OnZoomIn" ToolTipService.ToolTip="Zoom in" />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1"
+                          ZoomMode="Disabled"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollMode="Auto"
+                          VerticalScrollMode="Auto"
+                          Background="#FF808080">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
+                        BorderBrush="#FF404040" BorderThickness="1">
+                    <Image x:Name="CanvasImage"
+                           Stretch="None"
+                           PointerPressed="OnCanvasPointerPressed"
+                           PointerMoved="OnCanvasPointerMoved"
+                           PointerReleased="OnCanvasPointerReleased" />
+                </Border>
+            </ScrollViewer>
+
+            <TextBlock x:Name="StatusText" Grid.Row="2" Text="Left button draws, right button erases." />
+        </Grid>
+
+        <!-- Palette -->
+        <StackPanel Grid.Column="2" Spacing="8">
+            <TextBlock Text="Colour" Style="{StaticResource CaptionTextBlockStyle}" />
+
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button Click="OnSwatchClick" Tag="#FF000000" Padding="0" ToolTipService.ToolTip="Black">
+                    <Border Width="22" Height="22" Background="#FF000000" />
+                </Button>
+                <Button Click="OnSwatchClick" Tag="#FF808080" Padding="0" ToolTipService.ToolTip="Gray">
+                    <Border Width="22" Height="22" Background="#FF808080" />
+                </Button>
+                <Button Click="OnSwatchClick" Tag="#FFFFFFFF" Padding="0" ToolTipService.ToolTip="White">
+                    <Border Width="22" Height="22" Background="#FFFFFFFF" BorderBrush="Gray" BorderThickness="1" />
+                </Button>
+                <Button Click="OnSwatchClick" Tag="#FFE81123" Padding="0" ToolTipService.ToolTip="Red">
+                    <Border Width="22" Height="22" Background="#FFE81123" />
+                </Button>
+                <Button Click="OnSwatchClick" Tag="#FFFF8C00" Padding="0" ToolTipService.ToolTip="Orange">
+                    <Border Width="22" Height="22" Background="#FFFF8C00" />
+                </Button>
+                <Button Click="OnSwatchClick" Tag="#FFFFF100" Padding="0" ToolTipService.ToolTip="Yellow">
+                    <Border Width="22" Height="22" Background="#FFFFF100" />
+                </Button>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button Click="OnSwatchClick" Tag="#FF107C10" Padding="0" ToolTipService.ToolTip="Green">
+                    <Border Width="22" Height="22" Background="#FF107C10" />
+                </Button>
+                <Button Click="OnSwatchClick" Tag="#FF0078D7" Padding="0" ToolTipService.ToolTip="Blue">
+                    <Border Width="22" Height="22" Background="#FF0078D7" />
+                </Button>
+                <Button Click="OnSwatchClick" Tag="#FF00B7C3" Padding="0" ToolTipService.ToolTip="Cyan">
+                    <Border Width="22" Height="22" Background="#FF00B7C3" />
+                </Button>
+                <Button Click="OnSwatchClick" Tag="#FF881798" Padding="0" ToolTipService.ToolTip="Purple">
+                    <Border Width="22" Height="22" Background="#FF881798" />
+                </Button>
+                <Button Click="OnSwatchClick" Tag="#FF8E562E" Padding="0" ToolTipService.ToolTip="Brown">
+                    <Border Width="22" Height="22" Background="#FF8E562E" />
+                </Button>
+                <Button Click="OnSwatchClick" Tag="#00000000" Padding="0" ToolTipService.ToolTip="Transparent">
+                    <Border Width="22" Height="22" BorderBrush="Gray" BorderThickness="1">
+                        <TextBlock Text="&#xE894;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </Button>
+            </StackPanel>
+
+            <ColorPicker x:Name="ColorPickerControl"
+                         IsAlphaEnabled="True"
+                         IsMoreButtonVisible="True"
+                         ColorSpectrumShape="Box"
+                         ColorChanged="OnColorChanged"
+                         />
+        </StackPanel>
     </Grid>
 </Window>
