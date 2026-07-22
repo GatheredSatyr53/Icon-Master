@@ -360,7 +360,20 @@ namespace winrt::IconMaster::implementation
             tool = m_eraser.as<winrt::IconMaster::ITool>();
         }
 
-        tool.Draw(m_context, lx, ly);
+        if (kind == ToolKind::Fill && m_hasSelection)
+        {
+            // Fill is constrained to the selection rectangle.
+            if (!InsideSelection(lx, ly))
+            {
+                return;
+            }
+            m_fill.FillBounded(m_context, lx, ly,
+                               m_selX, m_selY, m_selX + m_selW - 1, m_selY + m_selH - 1);
+        }
+        else
+        {
+            tool.Draw(m_context, lx, ly);
+        }
 
         if (kind == ToolKind::Eyedropper)
         {

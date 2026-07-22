@@ -5,6 +5,7 @@
 #endif
 
 #include <winrt/IconMaster.h>
+#include <algorithm>
 #include <vector>
 #include <utility>
 
@@ -22,9 +23,18 @@ namespace winrt::IconMaster::implementation
 {
     void Fill::Draw(winrt::IconMaster::DrawingContext const& context, int32_t x, int32_t y)
     {
-        const int32_t w = context.PixelWidth();
-        const int32_t h = context.PixelHeight();
-        if (x < 0 || x >= w || y < 0 || y >= h)
+        FillBounded(context, x, y, 0, 0, context.PixelWidth() - 1, context.PixelHeight() - 1);
+    }
+
+    void Fill::FillBounded(winrt::IconMaster::DrawingContext const& context, int32_t x, int32_t y,
+                           int32_t left, int32_t top, int32_t right, int32_t bottom)
+    {
+        // Clamp the region to the canvas.
+        left = std::max(0, left);
+        top = std::max(0, top);
+        right = std::min(context.PixelWidth() - 1, right);
+        bottom = std::min(context.PixelHeight() - 1, bottom);
+        if (x < left || x > right || y < top || y > bottom)
         {
             return;
         }
@@ -36,7 +46,7 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
-        // Iterative 4-connected flood fill.
+        // Iterative 4-connected flood fill, bounded to [left..right] x [top..bottom].
         std::vector<std::pair<int32_t, int32_t>> stack;
         stack.emplace_back(x, y);
         while (!stack.empty())
@@ -44,7 +54,7 @@ namespace winrt::IconMaster::implementation
             auto [cx, cy] = stack.back();
             stack.pop_back();
 
-            if (cx < 0 || cx >= w || cy < 0 || cy >= h)
+            if (cx < left || cx > right || cy < top || cy > bottom)
             {
                 continue;
             }

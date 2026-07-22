@@ -82,5 +82,5 @@ and routes pointer input to the active tool.
 - [x] New / Open / Save as PNG
 - [x] Export to multi-size ICO (16 / 32 / 48 / 256)
 - [x] Undo / redo
+- [x] Fill bounded to the current selection
 - [ ] Multiple documents (tabs)
-- [ ] Fill bounded to the current selection
