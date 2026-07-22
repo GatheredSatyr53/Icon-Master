@@ -7,8 +7,9 @@ Pixel icon editor — a rewrite of the original WPF/C# prototype
 on **WinUI 3** and **C++/WinRT**.
 
 > **Status:** early work in progress. The app builds and runs: draw on a zoomable
-> pixel canvas with a crisp grid and a transparency checkerboard, using the Pen
-> and Eraser tools, and pick a colour. Tabs and file open/save are still to come.
+> pixel canvas with a crisp grid and a transparency checkerboard using the Pen,
+> Eraser, Fill, and Eyedropper tools, and choose a colour from swatches or a full
+> colour picker. Shape tools, tabs, and file open/save are still to come.
 
 ## Requirements
 
@@ -56,7 +57,8 @@ IconMaster/
 
 The editor core is modelled as Windows Runtime classes (declared in
 `Editor.idl`): `DrawingContext` owns the logical pixel grid and current colour,
-and the `ITool` interface is implemented by `Pen` and `Eraser`. `MainWindow`
+and the `ITool` interface is implemented by `Pen`, `Eraser`, `Fill`, and
+`Eyedropper`. `MainWindow`
 holds a `DrawingContext` and the active tool, renders the grid into a scaled
 `WriteableBitmap` (each logical pixel becomes a `zoom`×`zoom` block over a
 transparency checkerboard, with grid lines, drawn at 1:1 so pixels stay crisp),
@@ -68,9 +70,9 @@ and routes pointer input to the active tool.
 ## Roadmap
 
 - [x] Pixel canvas with a crisp grid, transparency checkerboard, and zoom
-- [x] Tool system (Pen, Eraser) wired to the UI
-- [x] Colour selection
-- [ ] Larger toolbox (shapes, fill, line) and a full colour palette
+- [x] Tools: Pen, Eraser, Fill (flood), Eyedropper
+- [x] Colour selection: swatches plus a full HSV/alpha colour picker
+- [ ] Shape tools (line, rectangle, ellipse) with a drag preview
 - [ ] Multiple documents (tabs)
 - [ ] File open / save (PNG, ICO)
 - [ ] Undo / redo

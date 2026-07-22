@@ -21,19 +21,37 @@ namespace winrt::IconMaster::implementation
 {
     MainWindow::MainWindow()
     {
-        // Loads the XAML and creates the named elements (CanvasImage, buttons).
-        // Must run before any of them is accessed.
+        // Loads the XAML and creates the named elements. Must run before any is accessed.
         InitializeComponent();
 
         m_context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
         m_pen = winrt::IconMaster::Pen();
         m_eraser = winrt::IconMaster::Eraser();
+        m_fill = winrt::IconMaster::Fill();
+        m_eyedropper = winrt::IconMaster::Eyedropper();
+
+        m_toolKind = ToolKind::Pen;
         m_currentTool = m_pen.as<winrt::IconMaster::ITool>();
+
+        // Sets the initial colour (also flows into the context via ColorChanged).
+        ColorPickerControl().Color(winrt::Windows::UI::Color{ 0xFF, 0x00, 0x00, 0x00 });
 
         RebuildDisplay();
     }
 
-    void MainWindow::OnToolChanged(IInspectable const&, RoutedEventArgs const&)
+    winrt::IconMaster::ITool MainWindow::ToolForKind(ToolKind kind)
+    {
+        switch (kind)
+        {
+        case ToolKind::Eraser:     return m_eraser.as<winrt::IconMaster::ITool>();
+        case ToolKind::Fill:       return m_fill.as<winrt::IconMaster::ITool>();
+        case ToolKind::Eyedropper: return m_eyedropper.as<winrt::IconMaster::ITool>();
+        case ToolKind::Pen:
+        default:                   return m_pen.as<winrt::IconMaster::ITool>();
+        }
+    }
+
+    void MainWindow::OnToolSelected(IInspectable const& sender, RoutedEventArgs const&)
     {
         // Fires during XAML load before the context exists; ignore until ready.
         if (m_context == nullptr)
@@ -41,24 +59,19 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
-        auto erased = EraserButton().IsChecked();
-        if (erased && erased.Value())
-        {
-            m_currentTool = m_eraser.as<winrt::IconMaster::ITool>();
-        }
-        else
-        {
-            m_currentTool = m_pen.as<winrt::IconMaster::ITool>();
-        }
+        auto element = sender.as<FrameworkElement>();
+        auto tag = winrt::unbox_value_or<winrt::hstring>(element.Tag(), L"pen");
+
+        if (tag == L"eraser")          { m_toolKind = ToolKind::Eraser; }
+        else if (tag == L"fill")       { m_toolKind = ToolKind::Fill; }
+        else if (tag == L"eyedropper") { m_toolKind = ToolKind::Eyedropper; }
+        else                           { m_toolKind = ToolKind::Pen; }
+
+        m_currentTool = ToolForKind(m_toolKind);
     }
 
-    void MainWindow::OnColorClick(IInspectable const& sender, RoutedEventArgs const&)
+    void MainWindow::OnSwatchClick(IInspectable const& sender, RoutedEventArgs const&)
     {
-        if (m_context == nullptr)
-        {
-            return;
-        }
-
         auto button = sender.as<Button>();
         auto tag = winrt::unbox_value_or<winrt::hstring>(button.Tag(), L"#FF000000");
 
@@ -69,13 +82,24 @@ namespace winrt::IconMaster::implementation
         }
 
         const uint32_t argb = static_cast<uint32_t>(std::wcstoul(text.c_str(), nullptr, 16));
-        const Color color{
+        const winrt::Windows::UI::Color color{
             static_cast<uint8_t>((argb >> 24) & 0xFF),
             static_cast<uint8_t>((argb >> 16) & 0xFF),
             static_cast<uint8_t>((argb >> 8) & 0xFF),
             static_cast<uint8_t>(argb & 0xFF)
         };
-        m_context.Color(color);
+
+        // Route through the picker so its UI and the context stay in sync.
+        ColorPickerControl().Color(color);
+    }
+
+    void MainWindow::OnColorChanged(ColorPicker const&, ColorChangedEventArgs const& args)
+    {
+        if (m_context == nullptr || m_suppressColorSync)
+        {
+            return;
+        }
+        m_context.Color(args.NewColor());
     }
 
     void MainWindow::OnZoomIn(IInspectable const&, RoutedEventArgs const&)
@@ -150,7 +174,7 @@ namespace winrt::IconMaster::implementation
         {
             const int32_t lx = dx / m_zoom;
             const int32_t ly = dy / m_zoom;
-            const Color c = m_context.GetPixel(lx, ly);
+            const winrt::Windows::UI::Color c = m_context.GetPixel(lx, ly);
             if (c.A == 0)
             {
                 // Transparency checkerboard.
@@ -248,14 +272,32 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
+        // Right button always erases, regardless of the selected tool.
+        ToolKind kind = m_toolKind;
         winrt::IconMaster::ITool tool = m_currentTool;
         if (right && !left)
         {
+            kind = ToolKind::Eraser;
             tool = m_eraser.as<winrt::IconMaster::ITool>();
         }
 
         tool.Draw(m_context, lx, ly);
-        RenderPixel(lx, ly);
+
+        switch (kind)
+        {
+        case ToolKind::Fill:
+            RenderAll();
+            break;
+        case ToolKind::Eyedropper:
+            // No pixel changed; reflect the picked colour in the palette.
+            m_suppressColorSync = true;
+            ColorPickerControl().Color(m_context.Color());
+            m_suppressColorSync = false;
+            break;
+        default:
+            RenderPixel(lx, ly);
+            break;
+        }
 
         StatusText().Text(L"x: " + winrt::to_hstring(lx) + L"  y: " + winrt::to_hstring(ly));
     }

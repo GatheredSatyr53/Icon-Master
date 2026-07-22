@@ -16,6 +16,8 @@
     <ClInclude Include="DrawingContext.h" />
     <ClInclude Include="Pen.h" />
     <ClInclude Include="Eraser.h" />
+    <ClInclude Include="Fill.h" />
+    <ClInclude Include="Eyedropper.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -28,6 +30,8 @@
     <ClCompile Include="DrawingContext.cpp" />
     <ClCompile Include="Pen.cpp" />
     <ClCompile Include="Eraser.cpp" />
+    <ClCompile Include="Fill.cpp" />
+    <ClCompile Include="Eyedropper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Midl Include="Editor.idl" />

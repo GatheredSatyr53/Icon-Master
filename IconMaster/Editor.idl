@@ -15,7 +15,8 @@ namespace IconMaster
         void Clear(Windows.UI.Color color);
     }
 
-    // A drawing tool. Given a context and a pixel coordinate, it mutates the grid.
+    // A drawing tool. Given a context and a pixel coordinate, it mutates the grid
+    // (or, for the eyedropper, the context's current colour).
     interface ITool
     {
         void Draw(DrawingContext context, Int32 x, Int32 y);
@@ -33,5 +34,19 @@ namespace IconMaster
     runtimeclass Eraser : ITool
     {
         Eraser();
+    }
+
+    // Flood-fills the contiguous region of same-coloured pixels with the current colour.
+    [default_interface]
+    runtimeclass Fill : ITool
+    {
+        Fill();
+    }
+
+    // Picks the colour under the pixel into the context's current colour.
+    [default_interface]
+    runtimeclass Eyedropper : ITool
+    {
+        Eyedropper();
     }
 }
