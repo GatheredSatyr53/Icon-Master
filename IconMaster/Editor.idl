@@ -15,11 +15,18 @@ namespace IconMaster
         void Clear(Windows.UI.Color color);
     }
 
-    // A drawing tool. Given a context and a pixel coordinate, it mutates the grid
+    // A pixel tool. Given a context and a pixel coordinate, it mutates the grid
     // (or, for the eyedropper, the context's current colour).
     interface ITool
     {
         void Draw(DrawingContext context, Int32 x, Int32 y);
+    }
+
+    // A shape tool defined by two corner points. Returns the pixels the shape
+    // covers, so callers can preview it non-destructively before committing.
+    interface IShapeTool
+    {
+        Windows.Foundation.Collections.IVector<Windows.Graphics.PointInt32> Rasterize(Int32 x0, Int32 y0, Int32 x1, Int32 y1);
     }
 
     // Paints the context's current colour at the pixel.
@@ -48,5 +55,26 @@ namespace IconMaster
     runtimeclass Eyedropper : ITool
     {
         Eyedropper();
+    }
+
+    // A straight line between the two points (Bresenham).
+    [default_interface]
+    runtimeclass LineTool : IShapeTool
+    {
+        LineTool();
+    }
+
+    // A rectangle outline between the two corners.
+    [default_interface]
+    runtimeclass RectangleTool : IShapeTool
+    {
+        RectangleTool();
+    }
+
+    // An ellipse outline inscribed in the bounding box of the two corners.
+    [default_interface]
+    runtimeclass EllipseTool : IShapeTool
+    {
+        EllipseTool();
     }
 }

@@ -38,6 +38,9 @@ namespace winrt::IconMaster::implementation
         m_eraser = winrt::IconMaster::Eraser();
         m_fill = winrt::IconMaster::Fill();
         m_eyedropper = winrt::IconMaster::Eyedropper();
+        m_line = winrt::IconMaster::LineTool();
+        m_rectangle = winrt::IconMaster::RectangleTool();
+        m_ellipse = winrt::IconMaster::EllipseTool();
 
         m_toolKind = ToolKind::Pen;
         m_currentTool = m_pen.as<winrt::IconMaster::ITool>();
@@ -60,6 +63,22 @@ namespace winrt::IconMaster::implementation
         }
     }
 
+    bool MainWindow::IsShapeTool(ToolKind kind)
+    {
+        return kind == ToolKind::Line || kind == ToolKind::Rectangle || kind == ToolKind::Ellipse;
+    }
+
+    winrt::IconMaster::IShapeTool MainWindow::ShapeToolForKind(ToolKind kind)
+    {
+        switch (kind)
+        {
+        case ToolKind::Line:      return m_line.as<winrt::IconMaster::IShapeTool>();
+        case ToolKind::Rectangle: return m_rectangle.as<winrt::IconMaster::IShapeTool>();
+        case ToolKind::Ellipse:   return m_ellipse.as<winrt::IconMaster::IShapeTool>();
+        default:                  return nullptr;
+        }
+    }
+
     void MainWindow::OnToolSelected(IInspectable const& sender, RoutedEventArgs const&)
     {
         // Fires during XAML load before the context exists; ignore until ready.
@@ -74,9 +93,16 @@ namespace winrt::IconMaster::implementation
         if (tag == L"eraser")          { m_toolKind = ToolKind::Eraser; }
         else if (tag == L"fill")       { m_toolKind = ToolKind::Fill; }
         else if (tag == L"eyedropper") { m_toolKind = ToolKind::Eyedropper; }
+        else if (tag == L"line")       { m_toolKind = ToolKind::Line; }
+        else if (tag == L"rectangle")  { m_toolKind = ToolKind::Rectangle; }
+        else if (tag == L"ellipse")    { m_toolKind = ToolKind::Ellipse; }
         else                           { m_toolKind = ToolKind::Pen; }
 
-        m_currentTool = ToolForKind(m_toolKind);
+        m_currentShape = ShapeToolForKind(m_toolKind);
+        if (!IsShapeTool(m_toolKind))
+        {
+            m_currentTool = ToolForKind(m_toolKind);
+        }
     }
 
     void MainWindow::OnSwatchClick(IInspectable const& sender, RoutedEventArgs const&)
@@ -123,12 +149,126 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OnCanvasPointerPressed(IInspectable const&, PointerRoutedEventArgs const& e)
     {
+        if (m_context == nullptr)
+        {
+            return;
+        }
+
+        auto props = e.GetCurrentPoint(CanvasImage()).Properties();
+        if (IsShapeTool(m_toolKind) && props.IsLeftButtonPressed())
+        {
+            PointerToPixelClamped(e, m_shapeStartX, m_shapeStartY);
+            m_shapeActive = true;
+            CanvasImage().CapturePointer(e.Pointer());
+            RenderAll();
+            OverlayShapePreview(m_shapeStartX, m_shapeStartY);
+            return;
+        }
+
         DrawFromPointer(e);
     }
 
     void MainWindow::OnCanvasPointerMoved(IInspectable const&, PointerRoutedEventArgs const& e)
     {
+        if (m_shapeActive)
+        {
+            int32_t lx, ly;
+            PointerToPixelClamped(e, lx, ly);
+            RenderAll();
+            OverlayShapePreview(lx, ly);
+            StatusText().Text(L"x: " + winrt::to_hstring(lx) + L"  y: " + winrt::to_hstring(ly));
+            return;
+        }
+
         DrawFromPointer(e);
+    }
+
+    void MainWindow::OnCanvasPointerReleased(IInspectable const&, PointerRoutedEventArgs const& e)
+    {
+        if (!m_shapeActive)
+        {
+            return;
+        }
+
+        int32_t lx, ly;
+        PointerToPixelClamped(e, lx, ly);
+        m_shapeActive = false;
+        CanvasImage().ReleasePointerCapture(e.Pointer());
+        CommitShape(lx, ly);
+        StatusText().Text(L"x: " + winrt::to_hstring(lx) + L"  y: " + winrt::to_hstring(ly));
+    }
+
+    void MainWindow::PointerToPixelClamped(PointerRoutedEventArgs const& e, int32_t& lx, int32_t& ly)
+    {
+        auto pos = e.GetCurrentPoint(CanvasImage()).Position();
+        const int32_t x = static_cast<int32_t>(pos.X) / m_zoom;
+        const int32_t y = static_cast<int32_t>(pos.Y) / m_zoom;
+        lx = std::clamp(x, 0, m_context.PixelWidth() - 1);
+        ly = std::clamp(y, 0, m_context.PixelHeight() - 1);
+    }
+
+    void MainWindow::PaintPreviewBlock(uint8_t* data, int32_t displayWidth, int32_t displayHeight, int32_t lx, int32_t ly, winrt::Windows::UI::Color const& color)
+    {
+        const int32_t x0 = lx * m_zoom;
+        const int32_t y0 = ly * m_zoom;
+
+        // Fill the block interior (leaving the grid lines intact).
+        for (int32_t dy = y0 + 1; dy < y0 + m_zoom && dy < displayHeight; ++dy)
+        {
+            for (int32_t dx = x0 + 1; dx < x0 + m_zoom && dx < displayWidth; ++dx)
+            {
+                const size_t i = (static_cast<size_t>(dy) * displayWidth + dx) * 4;
+                data[i + 0] = color.B;
+                data[i + 1] = color.G;
+                data[i + 2] = color.R;
+                data[i + 3] = 0xFF;
+            }
+        }
+    }
+
+    void MainWindow::OverlayShapePreview(int32_t x1, int32_t y1)
+    {
+        if (m_display == nullptr || m_currentShape == nullptr)
+        {
+            return;
+        }
+
+        const winrt::Windows::UI::Color color = m_context.Color();
+        if (color.A == 0)
+        {
+            // Nothing visible to preview (transparent colour).
+            m_display.Invalidate();
+            return;
+        }
+
+        const int32_t dw = m_display.PixelWidth();
+        const int32_t dh = m_display.PixelHeight();
+        uint8_t* data = DisplayData();
+
+        auto points = m_currentShape.Rasterize(m_shapeStartX, m_shapeStartY, x1, y1);
+        for (auto const& p : points)
+        {
+            PaintPreviewBlock(data, dw, dh, p.X, p.Y, color);
+        }
+
+        m_display.Invalidate();
+    }
+
+    void MainWindow::CommitShape(int32_t x1, int32_t y1)
+    {
+        if (m_currentShape == nullptr)
+        {
+            return;
+        }
+
+        const winrt::Windows::UI::Color color = m_context.Color();
+        auto points = m_currentShape.Rasterize(m_shapeStartX, m_shapeStartY, x1, y1);
+        for (auto const& p : points)
+        {
+            m_context.SetPixel(p.X, p.Y, color);
+        }
+
+        RenderAll();
     }
 
     void MainWindow::SetZoom(int32_t zoom)

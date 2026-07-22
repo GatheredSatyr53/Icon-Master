@@ -119,6 +119,9 @@
     <ClInclude Include="Eraser.h" />
     <ClInclude Include="Fill.h" />
     <ClInclude Include="Eyedropper.h" />
+    <ClInclude Include="LineTool.h" />
+    <ClInclude Include="RectangleTool.h" />
+    <ClInclude Include="EllipseTool.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -135,6 +138,9 @@
     <ClCompile Include="Eraser.cpp" />
     <ClCompile Include="Fill.cpp" />
     <ClCompile Include="Eyedropper.cpp" />
+    <ClCompile Include="LineTool.cpp" />
+    <ClCompile Include="RectangleTool.cpp" />
+    <ClCompile Include="EllipseTool.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
   <ItemGroup>

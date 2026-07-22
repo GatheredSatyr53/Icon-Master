@@ -27,6 +27,12 @@
                          HorizontalAlignment="Stretch" Checked="OnToolSelected" />
             <RadioButton Content="Pick" Tag="eyedropper" GroupName="tools"
                          HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Content="Line" Tag="line" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Content="Rectangle" Tag="rectangle" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Content="Ellipse" Tag="ellipse" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
         </StackPanel>
 
         <!-- Canvas area -->
@@ -55,7 +61,8 @@
                     <Image x:Name="CanvasImage"
                            Stretch="None"
                            PointerPressed="OnCanvasPointerPressed"
-                           PointerMoved="OnCanvasPointerMoved" />
+                           PointerMoved="OnCanvasPointerMoved"
+                           PointerReleased="OnCanvasPointerReleased" />
                 </Border>
             </ScrollViewer>
 
