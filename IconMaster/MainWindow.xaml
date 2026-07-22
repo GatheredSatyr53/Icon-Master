@@ -17,8 +17,29 @@
         </Grid.ColumnDefinitions>
 
         <!-- Toolbox -->
-        <StackPanel Grid.Column="0" Spacing="6" Width="108">
-            <TextBlock Text="Tools" Style="{StaticResource CaptionTextBlockStyle}" />
+        <ScrollViewer Grid.Column="0"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollMode="Disabled"
+                      HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="6" Width="108">
+            <TextBlock Text="File" Style="{StaticResource CaptionTextBlockStyle}" />
+            <Button Content="New" Click="OnNew" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="N" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Open&#x2026;" Click="OnOpen" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="O" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button Content="Save&#x2026;" Click="OnSave" HorizontalAlignment="Stretch">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="S" />
+                </Button.KeyboardAccelerators>
+            </Button>
+
+            <TextBlock Text="Tools" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
             <RadioButton Content="Pen" Tag="pen" GroupName="tools" IsChecked="True"
                          HorizontalAlignment="Stretch" Checked="OnToolSelected" />
             <RadioButton Content="Eraser" Tag="eraser" GroupName="tools"
@@ -68,6 +89,7 @@
                 </Button.KeyboardAccelerators>
             </Button>
         </StackPanel>
+        </ScrollViewer>
 
         <!-- Canvas area -->
         <Grid Grid.Column="1" RowSpacing="12">

@@ -7,9 +7,16 @@
 #include <winrt/IconMaster.h>
 #include <winrt/Microsoft.UI.Windowing.h>
 #include <winrt/Windows.Graphics.h>
+#include <winrt/Windows.Graphics.Imaging.h>
+#include <winrt/Windows.Storage.h>
+#include <winrt/Windows.Storage.Pickers.h>
+#include <winrt/Windows.Storage.Streams.h>
+#include <microsoft.ui.xaml.window.h>
+#include <shobjidl_core.h>
 #include <robuffer.h>
 #include <algorithm>
 #include <string>
+#include <vector>
 
 using namespace winrt;
 using namespace winrt::Windows::Foundation;
@@ -521,6 +528,140 @@ namespace winrt::IconMaster::implementation
         }
         ClearRegion(m_selX, m_selY, m_selW, m_selH);
         Render();
+    }
+
+    // ---- File ---------------------------------------------------------------
+
+    void MainWindow::LoadContext(winrt::IconMaster::DrawingContext const& context, int32_t fitZoom)
+    {
+        m_context = context;
+        m_hasSelection = false;
+        m_selecting = false;
+        m_moving = false;
+        m_shapeActive = false;
+        m_floatPixels.clear();
+        m_zoom = std::clamp(fitZoom, k_minZoom, k_maxZoom);
+        RebuildDisplay();
+    }
+
+    void MainWindow::OnNew(IInspectable const&, RoutedEventArgs const&)
+    {
+        auto context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
+        context.Color(ColorPickerControl().Color());
+        LoadContext(context, 16);
+        StatusText().Text(L"New 32 x 32 icon.");
+    }
+
+    winrt::fire_and_forget MainWindow::OnSave(IInspectable const&, RoutedEventArgs const&)
+    {
+        auto lifetime = get_strong();
+        if (m_context == nullptr)
+        {
+            co_return;
+        }
+
+        winrt::Windows::Storage::Pickers::FileSavePicker picker;
+        {
+            auto windowNative = this->try_as<::IWindowNative>();
+            HWND hwnd{};
+            winrt::check_hresult(windowNative->get_WindowHandle(&hwnd));
+            auto initWithWindow = picker.as<::IInitializeWithWindow>();
+            winrt::check_hresult(initWithWindow->Initialize(hwnd));
+        }
+        picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
+        picker.SuggestedFileName(L"icon");
+        picker.FileTypeChoices().Insert(L"PNG image", winrt::single_threaded_vector<winrt::hstring>({ L".png" }));
+
+        auto file = co_await picker.PickSaveFileAsync();
+        if (file == nullptr)
+        {
+            co_return;
+        }
+
+        const int32_t w = m_context.PixelWidth();
+        const int32_t h = m_context.PixelHeight();
+        std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
+        for (int32_t y = 0; y < h; ++y)
+        {
+            for (int32_t x = 0; x < w; ++x)
+            {
+                const auto c = m_context.GetPixel(x, y);
+                const size_t i = (static_cast<size_t>(y) * w + x) * 4;
+                bytes[i + 0] = c.B;
+                bytes[i + 1] = c.G;
+                bytes[i + 2] = c.R;
+                bytes[i + 3] = c.A;
+            }
+        }
+
+        auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::ReadWrite);
+        auto encoder = co_await winrt::Windows::Graphics::Imaging::BitmapEncoder::CreateAsync(
+            winrt::Windows::Graphics::Imaging::BitmapEncoder::PngEncoderId(), stream);
+        encoder.SetPixelData(
+            winrt::Windows::Graphics::Imaging::BitmapPixelFormat::Bgra8,
+            winrt::Windows::Graphics::Imaging::BitmapAlphaMode::Straight,
+            static_cast<uint32_t>(w), static_cast<uint32_t>(h),
+            96.0, 96.0, bytes);
+        co_await encoder.FlushAsync();
+
+        StatusText().Text(L"Saved " + file.Name());
+    }
+
+    winrt::fire_and_forget MainWindow::OnOpen(IInspectable const&, RoutedEventArgs const&)
+    {
+        auto lifetime = get_strong();
+
+        winrt::Windows::Storage::Pickers::FileOpenPicker picker;
+        {
+            auto windowNative = this->try_as<::IWindowNative>();
+            HWND hwnd{};
+            winrt::check_hresult(windowNative->get_WindowHandle(&hwnd));
+            auto initWithWindow = picker.as<::IInitializeWithWindow>();
+            winrt::check_hresult(initWithWindow->Initialize(hwnd));
+        }
+        picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
+        picker.ViewMode(winrt::Windows::Storage::Pickers::PickerViewMode::Thumbnail);
+        picker.FileTypeFilter().Append(L".png");
+
+        auto file = co_await picker.PickSingleFileAsync();
+        if (file == nullptr)
+        {
+            co_return;
+        }
+
+        auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::Read);
+        auto decoder = co_await winrt::Windows::Graphics::Imaging::BitmapDecoder::CreateAsync(stream);
+        const uint32_t w = decoder.PixelWidth();
+        const uint32_t h = decoder.PixelHeight();
+        if (w == 0 || h == 0 || w > 256 || h > 256)
+        {
+            StatusText().Text(L"Image must be between 1x1 and 256x256.");
+            co_return;
+        }
+
+        auto provider = co_await decoder.GetPixelDataAsync(
+            winrt::Windows::Graphics::Imaging::BitmapPixelFormat::Bgra8,
+            winrt::Windows::Graphics::Imaging::BitmapAlphaMode::Straight,
+            winrt::Windows::Graphics::Imaging::BitmapTransform(),
+            winrt::Windows::Graphics::Imaging::ExifOrientationMode::IgnoreExifOrientation,
+            winrt::Windows::Graphics::Imaging::ColorManagementMode::DoNotColorManage);
+        auto bytes = provider.DetachPixelData();
+
+        auto context = winrt::IconMaster::DrawingContext(static_cast<int32_t>(w), static_cast<int32_t>(h));
+        context.Color(ColorPickerControl().Color());
+        for (uint32_t y = 0; y < h; ++y)
+        {
+            for (uint32_t x = 0; x < w; ++x)
+            {
+                const size_t i = (static_cast<size_t>(y) * w + x) * 4;
+                const winrt::Windows::UI::Color c{ bytes[i + 3], bytes[i + 2], bytes[i + 1], bytes[i + 0] };
+                context.SetPixel(static_cast<int32_t>(x), static_cast<int32_t>(y), c);
+            }
+        }
+
+        const int32_t fit = static_cast<int32_t>(512u / std::max(w, h));
+        LoadContext(context, fit);
+        StatusText().Text(L"Opened " + file.Name());
     }
 
     // ---- Rendering ----------------------------------------------------------

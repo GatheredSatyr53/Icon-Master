@@ -9,8 +9,9 @@ on **WinUI 3** and **C++/WinRT**.
 > **Status:** early work in progress. The app builds and runs: draw on a zoomable
 > pixel canvas with a crisp grid and a transparency checkerboard using the Pen,
 > Eraser, Fill, Eyedropper, and shape (Line/Rectangle/Ellipse) tools, choose a
-> colour from swatches or a full colour picker, and make a rectangular selection
-> to move, cut, copy, paste, or delete pixels. Tabs and file open/save are still to come.
+> colour from swatches or a full colour picker, make a rectangular selection to
+> move, cut, copy, paste, or delete pixels, and open/save the canvas as a PNG.
+> Tabs, ICO export, and undo/redo are still to come.
 
 ## Requirements
 
@@ -78,6 +79,7 @@ and routes pointer input to the active tool.
 - [x] Shape tools: Line, Rectangle, Ellipse (drag with live preview)
 - [x] Colour selection: swatches plus a full HSV/alpha colour picker
 - [x] Rectangular selection: move, cut, copy, paste, delete
+- [x] New / Open / Save as PNG
 - [ ] Multiple documents (tabs)
-- [ ] File open / save (PNG, ICO)
+- [ ] Export to ICO
 - [ ] Undo / redo
