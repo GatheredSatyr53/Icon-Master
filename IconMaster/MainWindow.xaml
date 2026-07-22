@@ -11,7 +11,7 @@
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="12" RowSpacing="12">
 
-        <!-- Toolbar: tools + colour swatches -->
+        <!-- Toolbar: tools, colours, zoom -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
             <RadioButton x:Name="PenButton" Content="Pen" GroupName="tools" IsChecked="True" Checked="OnToolChanged" />
             <RadioButton x:Name="EraserButton" Content="Eraser" GroupName="tools" Checked="OnToolChanged" />
@@ -31,16 +31,28 @@
             <Button Click="OnColorClick" Tag="#FF107C10" ToolTipService.ToolTip="Green">
                 <Border Width="20" Height="20" Background="#FF107C10" />
             </Button>
+            <AppBarSeparator />
+            <Button Content="&#x2212;" Click="OnZoomOut" ToolTipService.ToolTip="Zoom out" />
+            <TextBlock x:Name="ZoomText" VerticalAlignment="Center" MinWidth="52" TextAlignment="Center" Text="1600%" />
+            <Button Content="&#x2b;" Click="OnZoomIn" ToolTipService.ToolTip="Zoom in" />
         </StackPanel>
 
         <!-- Canvas -->
-        <Border Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                BorderBrush="Gray" BorderThickness="1" Background="#20808080">
-            <Image x:Name="CanvasImage" Width="512" Height="512"
-                   Stretch="Uniform"
-                   PointerPressed="OnCanvasPointerPressed"
-                   PointerMoved="OnCanvasPointerMoved" />
-        </Border>
+        <ScrollViewer Grid.Row="1"
+                      ZoomMode="Disabled"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollMode="Auto"
+                      VerticalScrollMode="Auto"
+                      Background="#FF808080">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
+                    BorderBrush="#FF404040" BorderThickness="1">
+                <Image x:Name="CanvasImage"
+                       Stretch="None"
+                       PointerPressed="OnCanvasPointerPressed"
+                       PointerMoved="OnCanvasPointerMoved" />
+            </Border>
+        </ScrollViewer>
 
         <!-- Status -->
         <TextBlock x:Name="StatusText" Grid.Row="2" Text="Left button draws, right button erases." />
