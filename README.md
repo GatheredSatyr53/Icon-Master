@@ -1,5 +1,7 @@
 # Icon Master
 
+[![build](https://github.com/GatheredSatyr53/Icon-Master/actions/workflows/build.yml/badge.svg)](https://github.com/GatheredSatyr53/Icon-Master/actions/workflows/build.yml)
+
 Pixel icon editor — a rewrite of the original WPF/C# prototype
 ([Icon-Master-Legacy](https://github.com/GatheredSatyr53/Icon-Master-Legacy))
 on **WinUI 3** and **C++/WinRT**.
