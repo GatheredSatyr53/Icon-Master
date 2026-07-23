@@ -79,4 +79,9 @@
       <Filter>Assets</Filter>
     </Image>
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\App.ico">
+      <Filter>Assets</Filter>
+    </Content>
+  </ItemGroup>
 </Project>

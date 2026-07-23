@@ -51,6 +51,7 @@ namespace winrt::IconMaster::implementation
         if (auto appWindow = AppWindow())
         {
             appWindow.Resize(winrt::Windows::Graphics::SizeInt32{ 1200, 820 });
+            appWindow.SetIcon(L"Assets/App.ico"); // title-bar / taskbar icon
         }
 
         doc().context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
