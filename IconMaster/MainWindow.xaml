@@ -21,147 +21,174 @@
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollMode="Disabled"
                       HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="6" Width="124">
+        <StackPanel Spacing="6" Width="104">
+            <StackPanel.Resources>
+                <!-- Compact, icon-only toolbar buttons. Labels live in tooltips. -->
+                <Style TargetType="Button">
+                    <Setter Property="Width" Value="48" />
+                    <Setter Property="Height" Value="38" />
+                    <Setter Property="Padding" Value="0" />
+                </Style>
+                <Style TargetType="RadioButton">
+                    <Setter Property="Width" Value="48" />
+                    <Setter Property="Height" Value="38" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="MinWidth" Value="0" />
+                </Style>
+            </StackPanel.Resources>
+
             <TextBlock Text="File" Style="{StaticResource CaptionTextBlockStyle}" />
-            <Button Content="New" Click="OnNew" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="N" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Open&#x2026;" Click="OnOpen" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="O" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Save&#x2026;" Click="OnSave" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="S" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Export ICO&#x2026;" Click="OnExportIco" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="E" />
-                </Button.KeyboardAccelerators>
-            </Button>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Click="OnNew" ToolTipService.ToolTip="New  (Ctrl+N)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE710;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="N" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+                <Button Click="OnOpen" ToolTipService.ToolTip="Open&#x2026;  (Ctrl+O)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8E5;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="O" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Click="OnSave" ToolTipService.ToolTip="Save as PNG&#x2026;  (Ctrl+S)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74E;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="S" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+                <Button Click="OnExportIco" ToolTipService.ToolTip="Export ICO&#x2026;  (Ctrl+E)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE896;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="E" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+            </StackPanel>
 
             <TextBlock Text="Canvas" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
-            <ComboBox x:Name="SizeCombo" HorizontalAlignment="Stretch"
-                      ToolTipService.ToolTip="Canvas size for New / Resize">
-                <ComboBoxItem Content="16" />
-                <ComboBoxItem Content="32" IsSelected="True" />
-                <ComboBoxItem Content="48" />
-                <ComboBoxItem Content="64" />
-                <ComboBoxItem Content="128" />
-                <ComboBoxItem Content="256" />
-            </ComboBox>
-            <Button Content="Resize" Click="OnResizeCanvas" HorizontalAlignment="Stretch"
-                    ToolTipService.ToolTip="Resize the current canvas (top-left anchored)" />
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <ComboBox x:Name="SizeCombo" Width="48"
+                          VerticalAlignment="Center"
+                          ToolTipService.ToolTip="Canvas size for New / Resize">
+                    <ComboBoxItem Content="16" />
+                    <ComboBoxItem Content="32" IsSelected="True" />
+                    <ComboBoxItem Content="48" />
+                    <ComboBoxItem Content="64" />
+                    <ComboBoxItem Content="128" />
+                    <ComboBoxItem Content="256" />
+                </ComboBox>
+                <Button Click="OnResizeCanvas" ToolTipService.ToolTip="Resize canvas to the chosen size (top-left anchored)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE740;" FontSize="16" />
+                </Button>
+            </StackPanel>
 
             <TextBlock Text="Edit" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
-            <Button Content="Undo" Click="OnUndo" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="Z" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Redo" Click="OnRedo" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="Y" />
-                </Button.KeyboardAccelerators>
-            </Button>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Click="OnUndo" ToolTipService.ToolTip="Undo  (Ctrl+Z)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7A7;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="Z" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+                <Button Click="OnRedo" ToolTipService.ToolTip="Redo  (Ctrl+Y)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7A6;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="Y" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+            </StackPanel>
 
             <TextBlock Text="Tools" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
-            <RadioButton Tag="pen" GroupName="tools" IsChecked="True"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
-                <StackPanel Orientation="Horizontal" Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <RadioButton Tag="pen" GroupName="tools" IsChecked="True"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Pen">
                     <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE70F;" FontSize="16" />
-                    <TextBlock Text="Pen" VerticalAlignment="Center" />
-                </StackPanel>
-            </RadioButton>
-            <RadioButton Tag="eraser" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
-                <StackPanel Orientation="Horizontal" Spacing="8">
+                </RadioButton>
+                <RadioButton Tag="eraser" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Eraser">
                     <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE75C;" FontSize="16" />
-                    <TextBlock Text="Eraser" VerticalAlignment="Center" />
-                </StackPanel>
-            </RadioButton>
-            <RadioButton Tag="fill" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
-                <StackPanel Orientation="Horizontal" Spacing="8">
+                </RadioButton>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <RadioButton Tag="fill" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Fill">
                     <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE790;" FontSize="16" />
-                    <TextBlock Text="Fill" VerticalAlignment="Center" />
-                </StackPanel>
-            </RadioButton>
-            <RadioButton Tag="eyedropper" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <PathIcon Width="16" Height="16" VerticalAlignment="Center"
+                </RadioButton>
+                <RadioButton Tag="eyedropper" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Eyedropper">
+                    <PathIcon Width="16" Height="16"
                               Data="M10.5,2 H14 V5.5 H10.5 Z M11,4.5 L12.5,6 L6,12.5 L4.5,11 Z M4.5,11 L6,12.5 L3,14 Z" />
-                    <TextBlock Text="Pick" VerticalAlignment="Center" />
-                </StackPanel>
-            </RadioButton>
-            <RadioButton Tag="line" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <PathIcon Width="16" Height="16" VerticalAlignment="Center"
+                </RadioButton>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <RadioButton Tag="line" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Line">
+                    <PathIcon Width="16" Height="16"
                               Data="M2.2,12.2 L3.8,13.8 L13.8,3.8 L12.2,2.2 Z" />
-                    <TextBlock Text="Line" VerticalAlignment="Center" />
-                </StackPanel>
-            </RadioButton>
-            <RadioButton Tag="rectangle" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <PathIcon Width="16" Height="16" VerticalAlignment="Center"
+                </RadioButton>
+                <RadioButton Tag="rectangle" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Rectangle">
+                    <PathIcon Width="16" Height="16"
                               Data="F0 M2,4 H14 V12 H2 Z M4,6 H12 V10 H4 Z" />
-                    <TextBlock Text="Rectangle" VerticalAlignment="Center" />
-                </StackPanel>
-            </RadioButton>
-            <RadioButton Tag="ellipse" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
-                <StackPanel Orientation="Horizontal" Spacing="8">
+                </RadioButton>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <RadioButton Tag="ellipse" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Ellipse">
                     <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xEA3A;" FontSize="16" />
-                    <TextBlock Text="Ellipse" VerticalAlignment="Center" />
-                </StackPanel>
-            </RadioButton>
-            <RadioButton Tag="select" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <PathIcon Width="16" Height="16" VerticalAlignment="Center"
+                </RadioButton>
+                <RadioButton Tag="select" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Select">
+                    <PathIcon Width="16" Height="16"
                               Data="M2,3 H6 V4 H3 V7 H2 Z M14,3 H10 V4 H13 V7 H14 Z M2,13 H6 V12 H3 V9 H2 Z M14,13 H10 V12 H13 V9 H14 Z" />
-                    <TextBlock Text="Select" VerticalAlignment="Center" />
-                </StackPanel>
-            </RadioButton>
+                </RadioButton>
+            </StackPanel>
 
             <TextBlock Text="Selection" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
-            <Button Content="Select all" Click="OnSelectAll" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="A" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Deselect" Click="OnDeselect" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="Escape" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Copy" Click="OnCopy" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="C" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Cut" Click="OnCut" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="X" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Paste" Click="OnPaste" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="V" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Delete" Click="OnDelete" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="Delete" />
-                </Button.KeyboardAccelerators>
-            </Button>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Click="OnSelectAll" ToolTipService.ToolTip="Select all  (Ctrl+A)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8B3;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="A" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+                <Button Click="OnDeselect" ToolTipService.ToolTip="Deselect  (Esc)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE711;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="Escape" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Click="OnCopy" ToolTipService.ToolTip="Copy  (Ctrl+C)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8C8;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="C" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+                <Button Click="OnCut" ToolTipService.ToolTip="Cut  (Ctrl+X)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8C6;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="X" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Click="OnPaste" ToolTipService.ToolTip="Paste  (Ctrl+V)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE77F;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="V" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+                <Button Click="OnDelete" ToolTipService.ToolTip="Delete  (Del)">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74D;" FontSize="16" />
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="Delete" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+            </StackPanel>
         </StackPanel>
         </ScrollViewer>
 
