@@ -784,9 +784,9 @@ namespace winrt::IconMaster::implementation
                 rb.Content(winrt::box_value(winrt::hstring{ depths[i] }));
                 rb.GroupName(L"newdepth");
                 if (i == 4) { rb.IsChecked(true); }
+                rb.IsEnabled(false); // 32-bit BGRA only for now
                 colorPanel.Children().Append(rb);
             }
-            colorPanel.IsEnabled(false);
 
             StackPanel columns;
             columns.Orientation(Orientation::Horizontal);
