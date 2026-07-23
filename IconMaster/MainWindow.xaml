@@ -21,7 +21,7 @@
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollMode="Disabled"
                       HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="6" Width="108">
+        <StackPanel Spacing="6" Width="124">
             <TextBlock Text="File" Style="{StaticResource CaptionTextBlockStyle}" />
             <Button Content="New" Click="OnNew" HorizontalAlignment="Stretch">
                 <Button.KeyboardAccelerators>
@@ -70,22 +70,66 @@
             </Button>
 
             <TextBlock Text="Tools" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
-            <RadioButton Content="Pen" Tag="pen" GroupName="tools" IsChecked="True"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Eraser" Tag="eraser" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Fill" Tag="fill" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Pick" Tag="eyedropper" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Line" Tag="line" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Rectangle" Tag="rectangle" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Ellipse" Tag="ellipse" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Select" Tag="select" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
+            <RadioButton Tag="pen" GroupName="tools" IsChecked="True"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE70F;" FontSize="16" />
+                    <TextBlock Text="Pen" VerticalAlignment="Center" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton Tag="eraser" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE75C;" FontSize="16" />
+                    <TextBlock Text="Eraser" VerticalAlignment="Center" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton Tag="fill" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE790;" FontSize="16" />
+                    <TextBlock Text="Fill" VerticalAlignment="Center" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton Tag="eyedropper" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" VerticalAlignment="Center"
+                              Data="M10.5,2 H14 V5.5 H10.5 Z M11,4.5 L12.5,6 L6,12.5 L4.5,11 Z M4.5,11 L6,12.5 L3,14 Z" />
+                    <TextBlock Text="Pick" VerticalAlignment="Center" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton Tag="line" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" VerticalAlignment="Center"
+                              Data="M2.2,12.2 L3.8,13.8 L13.8,3.8 L12.2,2.2 Z" />
+                    <TextBlock Text="Line" VerticalAlignment="Center" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton Tag="rectangle" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" VerticalAlignment="Center"
+                              Data="F0 M2,4 H14 V12 H2 Z M4,6 H12 V10 H4 Z" />
+                    <TextBlock Text="Rectangle" VerticalAlignment="Center" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton Tag="ellipse" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xEA3A;" FontSize="16" />
+                    <TextBlock Text="Ellipse" VerticalAlignment="Center" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton Tag="select" GroupName="tools"
+                         HorizontalAlignment="Stretch" Checked="OnToolSelected">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" VerticalAlignment="Center"
+                              Data="M2,3 H6 V4 H3 V7 H2 Z M14,3 H10 V4 H13 V7 H14 Z M2,13 H6 V12 H3 V9 H2 Z M14,13 H10 V12 H13 V9 H14 Z" />
+                    <TextBlock Text="Select" VerticalAlignment="Center" />
+                </StackPanel>
+            </RadioButton>
 
             <TextBlock Text="Selection" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
             <Button Content="Select all" Click="OnSelectAll" HorizontalAlignment="Stretch">
