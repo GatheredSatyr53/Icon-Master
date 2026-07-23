@@ -1,0 +1,5 @@
+// Embeds the application icon into IconMaster.exe so Explorer (and the shell)
+// show it on the executable itself. The window/taskbar icon of the running app
+// is set separately at runtime via AppWindow.SetIcon.
+// The lowest-numbered ICON resource is used as the executable's icon.
+1 ICON "Assets\\App.ico"

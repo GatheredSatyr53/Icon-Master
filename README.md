@@ -69,8 +69,9 @@ holds a `DrawingContext` and the active tool, renders the grid into a scaled
 transparency checkerboard, with grid lines, drawn at 1:1 so pixels stay crisp),
 and routes pointer input to the active tool.
 
-> The images in `Assets/` are solid-colour placeholders so the package builds;
-> replace them with real artwork before shipping.
+> The app icon and MSIX tile logos in `Assets/` are generated from the original
+> project's `App.ico` (carried over from Icon-Master-Legacy). The window's
+> title-bar/taskbar icon is set from `Assets/App.ico` via `AppWindow.SetIcon`.
 
 ## Roadmap
 
