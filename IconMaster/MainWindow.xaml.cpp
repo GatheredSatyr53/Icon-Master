@@ -15,6 +15,8 @@
 #include <shobjidl_core.h>
 #include <robuffer.h>
 #include <algorithm>
+#include <cmath>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -638,19 +640,197 @@ namespace winrt::IconMaster::implementation
         return std::clamp(512 / maxDim, k_minZoom, k_maxZoom);
     }
 
-    void MainWindow::NewDocument()
+    void MainWindow::NewDocument(int32_t w, int32_t h)
     {
-        const int32_t size = SelectedSize();
-        auto context = winrt::IconMaster::DrawingContext(size, size);
+        w = std::clamp(w, 1, 1024);
+        h = std::clamp(h, 1, 1024);
+        auto context = winrt::IconMaster::DrawingContext(w, h);
         context.Color(ColorPickerControl().Color());
         m_docCounter += 1;
-        AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), FitZoom(size));
-        StatusText().Text(L"New " + winrt::to_hstring(size) + L" x " + winrt::to_hstring(size) + L" icon.");
+        AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), FitZoom(std::max(w, h)));
+        StatusText().Text(L"New " + winrt::to_hstring(w) + L" x " + winrt::to_hstring(h) + L" icon.");
     }
 
-    void MainWindow::OnNew(IInspectable const&, RoutedEventArgs const&)
+    winrt::fire_and_forget MainWindow::OnNew(IInspectable const&, RoutedEventArgs const&)
     {
-        NewDocument();
+        auto lifetime = get_strong();
+
+        int32_t w = m_newW;
+        int32_t h = m_newH;
+
+        if (m_askOnNew)
+        {
+            // Reentrancy guard so the width/height/square controls can mirror each
+            // other without triggering their own change handlers recursively.
+            auto guard = std::make_shared<bool>(false);
+
+            NumberBox widthBox;
+            widthBox.Header(winrt::box_value(L"Width"));
+            widthBox.Minimum(1);
+            widthBox.Maximum(1024);
+            widthBox.SpinButtonPlacementMode(NumberBoxSpinButtonPlacementMode::Inline);
+            widthBox.Value(m_newW);
+
+            NumberBox heightBox;
+            heightBox.Header(winrt::box_value(L"Height"));
+            heightBox.Minimum(1);
+            heightBox.Maximum(1024);
+            heightBox.SpinButtonPlacementMode(NumberBoxSpinButtonPlacementMode::Inline);
+            heightBox.Value(m_newH);
+
+            CheckBox squareBox;
+            squareBox.Content(winrt::box_value(L"Square"));
+            squareBox.IsChecked(m_newW == m_newH);
+
+            const auto isSquare = [squareBox]() -> bool
+            {
+                auto ic = squareBox.IsChecked();
+                return ic && ic.Value();
+            };
+
+            widthBox.ValueChanged([=](NumberBox const&, NumberBoxValueChangedEventArgs const& a)
+            {
+                if (*guard || !isSquare()) { return; }
+                const double v = a.NewValue();
+                if (std::isnan(v)) { return; }
+                *guard = true;
+                heightBox.Value(v);
+                *guard = false;
+            });
+            heightBox.ValueChanged([=](NumberBox const&, NumberBoxValueChangedEventArgs const& a)
+            {
+                if (*guard || !isSquare()) { return; }
+                const double v = a.NewValue();
+                if (std::isnan(v)) { return; }
+                *guard = true;
+                widthBox.Value(v);
+                *guard = false;
+            });
+            squareBox.Checked([=](IInspectable const&, RoutedEventArgs const&)
+            {
+                if (*guard) { return; }
+                const double v = widthBox.Value();
+                if (std::isnan(v)) { return; }
+                *guard = true;
+                heightBox.Value(v);
+                *guard = false;
+            });
+
+            StackPanel sizePanel;
+            sizePanel.Spacing(6);
+            {
+                TextBlock header;
+                header.Text(L"Size");
+                sizePanel.Children().Append(header);
+            }
+
+            const bool startsSquare = (m_newW == m_newH);
+            const int32_t presets[] = { 16, 24, 32, 48, 256, 512, 1024 };
+            bool matchedPreset = false;
+            for (int32_t p : presets)
+            {
+                RadioButton rb;
+                rb.Content(winrt::box_value(winrt::to_hstring(p) + L" x " + winrt::to_hstring(p)));
+                rb.GroupName(L"newsize");
+                rb.Tag(winrt::box_value(p));
+                rb.Checked([=](IInspectable const& s, RoutedEventArgs const&)
+                {
+                    const int32_t val = winrt::unbox_value_or<int32_t>(s.as<FrameworkElement>().Tag(), 0);
+                    if (val <= 0) { return; }
+                    *guard = true;
+                    widthBox.Value(val);
+                    heightBox.Value(val);
+                    squareBox.IsChecked(true);
+                    *guard = false;
+                });
+                if (startsSquare && p == m_newW)
+                {
+                    rb.IsChecked(true);
+                    matchedPreset = true;
+                }
+                sizePanel.Children().Append(rb);
+            }
+            {
+                RadioButton other;
+                other.Content(winrt::box_value(L"Other"));
+                other.GroupName(L"newsize");
+                other.Tag(winrt::box_value(L"other"));
+                other.IsChecked(!matchedPreset);
+                sizePanel.Children().Append(other);
+            }
+            sizePanel.Children().Append(squareBox);
+            sizePanel.Children().Append(widthBox);
+            sizePanel.Children().Append(heightBox);
+
+            // Colour depth: shown for parity with the original, but the engine is
+            // always 32-bit BGRA, so the group is fixed on that option and disabled.
+            StackPanel colorPanel;
+            colorPanel.Spacing(6);
+            {
+                TextBlock header;
+                header.Text(L"Colours");
+                colorPanel.Children().Append(header);
+            }
+            const wchar_t* depths[] = {
+                L"Black & white (1-bit)",
+                L"16 colours (4-bit)",
+                L"256 colours (8-bit)",
+                L"True Color (24-bit)",
+                L"True Color + Alpha (32-bit)"
+            };
+            for (int32_t i = 0; i < 5; ++i)
+            {
+                RadioButton rb;
+                rb.Content(winrt::box_value(winrt::hstring{ depths[i] }));
+                rb.GroupName(L"newdepth");
+                if (i == 4) { rb.IsChecked(true); }
+                colorPanel.Children().Append(rb);
+            }
+            colorPanel.IsEnabled(false);
+
+            StackPanel columns;
+            columns.Orientation(Orientation::Horizontal);
+            columns.Spacing(32);
+            columns.Children().Append(sizePanel);
+            columns.Children().Append(colorPanel);
+
+            CheckBox dontAsk;
+            dontAsk.Content(winrt::box_value(L"Don't ask again"));
+
+            StackPanel root;
+            root.Spacing(16);
+            root.Children().Append(columns);
+            root.Children().Append(dontAsk);
+
+            ContentDialog dialog;
+            dialog.Title(winrt::box_value(L"New icon"));
+            dialog.PrimaryButtonText(L"OK");
+            dialog.CloseButtonText(L"Cancel");
+            dialog.DefaultButton(ContentDialogButton::Primary);
+            dialog.Content(root);
+            dialog.XamlRoot(this->Content().XamlRoot());
+
+            const auto result = co_await dialog.ShowAsync();
+            if (result != ContentDialogResult::Primary)
+            {
+                co_return;
+            }
+
+            const double dw = widthBox.Value();
+            const double dh = heightBox.Value();
+            w = std::isnan(dw) ? m_newW : std::clamp(static_cast<int32_t>(std::lround(dw)), 1, 1024);
+            h = std::isnan(dh) ? m_newH : std::clamp(static_cast<int32_t>(std::lround(dh)), 1, 1024);
+            m_newW = w;
+            m_newH = h;
+
+            auto ask = dontAsk.IsChecked();
+            if (ask && ask.Value())
+            {
+                m_askOnNew = false;
+            }
+        }
+
+        NewDocument(w, h);
     }
 
     void MainWindow::ResizeCanvas(int32_t newW, int32_t newH)
@@ -1040,7 +1220,8 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OnAddTab(winrt::Microsoft::UI::Xaml::Controls::TabView const&, IInspectable const&)
     {
-        NewDocument();
+        // The tab "+" button is a quick add: reuse the last chosen size without a prompt.
+        NewDocument(m_newW, m_newH);
     }
 
     void MainWindow::OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const&, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args)

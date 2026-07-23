@@ -85,4 +85,5 @@ and routes pointer input to the active tool.
 - [x] Undo / redo
 - [x] Fill bounded to the current selection
 - [x] Multiple documents in tabs (new / open in their own tab, close, switch)
-- [x] Resizable canvas (new / resize to 16 / 32 / 48 / 64 / 128 / 256)
+- [x] Resizable canvas: a "New icon" dialog (size presets up to 1024, square
+      toggle, custom width/height) and in-place resize

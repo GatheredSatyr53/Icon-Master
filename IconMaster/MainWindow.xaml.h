@@ -27,7 +27,7 @@ namespace winrt::IconMaster::implementation
         void OnPaste(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnDelete(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
-        void OnNew(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        winrt::fire_and_forget OnNew(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnResizeCanvas(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnOpen(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnSave(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -41,7 +41,7 @@ namespace winrt::IconMaster::implementation
         void OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const& sender, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args);
 
     private:
-        void NewDocument();
+        void NewDocument(int32_t w, int32_t h);
         void AddDocument(winrt::IconMaster::DrawingContext const& context, winrt::hstring const& title, int32_t zoom);
         int32_t SelectedSize();                        // canvas size chosen in the size combo box
         static int32_t FitZoom(int32_t maxDim);        // zoom that fits a maxDim-wide canvas on screen
@@ -147,6 +147,11 @@ namespace winrt::IconMaster::implementation
         size_t m_active{ 0 };
         bool m_updatingTabs{ false };  // suppress tab handlers during programmatic changes
         int32_t m_docCounter{ 0 };     // for default document titles
+
+        // Remembered "New icon" dialog choices.
+        int32_t m_newW{ k_canvasSize };
+        int32_t m_newH{ k_canvasSize };
+        bool m_askOnNew{ true };        // false => "Don't ask again": reuse the remembered size
 
         winrt::IconMaster::Pen m_pen{ nullptr };
         winrt::IconMaster::Eraser m_eraser{ nullptr };
