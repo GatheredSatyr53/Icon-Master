@@ -84,4 +84,7 @@
       <Filter>Assets</Filter>
     </Content>
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="IconMaster.rc" />
+  </ItemGroup>
 </Project>

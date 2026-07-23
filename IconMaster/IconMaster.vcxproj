@@ -178,6 +178,9 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="IconMaster.rc" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
