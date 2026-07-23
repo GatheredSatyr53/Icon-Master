@@ -44,6 +44,19 @@
                 </Button.KeyboardAccelerators>
             </Button>
 
+            <TextBlock Text="Canvas" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
+            <ComboBox x:Name="SizeCombo" HorizontalAlignment="Stretch"
+                      ToolTipService.ToolTip="Canvas size for New / Resize">
+                <ComboBoxItem Content="16" />
+                <ComboBoxItem Content="32" IsSelected="True" />
+                <ComboBoxItem Content="48" />
+                <ComboBoxItem Content="64" />
+                <ComboBoxItem Content="128" />
+                <ComboBoxItem Content="256" />
+            </ComboBox>
+            <Button Content="Resize" Click="OnResizeCanvas" HorizontalAlignment="Stretch"
+                    ToolTipService.ToolTip="Resize the current canvas (top-left anchored)" />
+
             <TextBlock Text="Edit" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
             <Button Content="Undo" Click="OnUndo" HorizontalAlignment="Stretch">
                 <Button.KeyboardAccelerators>

@@ -28,6 +28,7 @@ namespace winrt::IconMaster::implementation
         void OnDelete(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
         void OnNew(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnResizeCanvas(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnOpen(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnSave(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnExportIco(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -42,6 +43,9 @@ namespace winrt::IconMaster::implementation
     private:
         void NewDocument();
         void AddDocument(winrt::IconMaster::DrawingContext const& context, winrt::hstring const& title, int32_t zoom);
+        int32_t SelectedSize();                        // canvas size chosen in the size combo box
+        static int32_t FitZoom(int32_t maxDim);        // zoom that fits a maxDim-wide canvas on screen
+        void ResizeCanvas(int32_t newW, int32_t newH); // resize the active canvas, top-left anchored
         void ResetTransient();
         std::vector<uint8_t> ScaleCanvas(int32_t target); // nearest-neighbour, BGRA8
 

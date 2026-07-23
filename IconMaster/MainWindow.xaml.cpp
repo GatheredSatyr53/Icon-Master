@@ -612,18 +612,89 @@ namespace winrt::IconMaster::implementation
         RebuildDisplay();
     }
 
+    int32_t MainWindow::SelectedSize()
+    {
+        if (auto combo = SizeCombo())
+        {
+            if (auto item = combo.SelectedItem().try_as<winrt::Microsoft::UI::Xaml::Controls::ComboBoxItem>())
+            {
+                const auto text = winrt::unbox_value_or<winrt::hstring>(item.Content(), L"");
+                const int32_t value = static_cast<int32_t>(std::wcstol(text.c_str(), nullptr, 10));
+                if (value > 0)
+                {
+                    return std::clamp(value, 1, 256);
+                }
+            }
+        }
+        return k_canvasSize;
+    }
+
+    int32_t MainWindow::FitZoom(int32_t maxDim)
+    {
+        if (maxDim <= 0)
+        {
+            return k_minZoom;
+        }
+        return std::clamp(512 / maxDim, k_minZoom, k_maxZoom);
+    }
+
     void MainWindow::NewDocument()
     {
-        auto context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
+        const int32_t size = SelectedSize();
+        auto context = winrt::IconMaster::DrawingContext(size, size);
         context.Color(ColorPickerControl().Color());
         m_docCounter += 1;
-        AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), 16);
-        StatusText().Text(L"New 32 x 32 icon.");
+        AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), FitZoom(size));
+        StatusText().Text(L"New " + winrt::to_hstring(size) + L" x " + winrt::to_hstring(size) + L" icon.");
     }
 
     void MainWindow::OnNew(IInspectable const&, RoutedEventArgs const&)
     {
         NewDocument();
+    }
+
+    void MainWindow::ResizeCanvas(int32_t newW, int32_t newH)
+    {
+        if (doc().context == nullptr || newW <= 0 || newH <= 0)
+        {
+            return;
+        }
+        const int32_t oldW = doc().context.PixelWidth();
+        const int32_t oldH = doc().context.PixelHeight();
+        if (newW == oldW && newH == oldH)
+        {
+            return;
+        }
+
+        // Snapshot the old canvas so the resize is undoable (dimensions included).
+        PushUndo();
+
+        auto resized = winrt::IconMaster::DrawingContext(newW, newH);
+        resized.Color(doc().context.Color());
+
+        // Copy the overlapping region, anchored at the top-left corner.
+        const int32_t copyW = std::min(oldW, newW);
+        const int32_t copyH = std::min(oldH, newH);
+        for (int32_t y = 0; y < copyH; ++y)
+        {
+            for (int32_t x = 0; x < copyW; ++x)
+            {
+                resized.SetPixel(x, y, doc().context.GetPixel(x, y));
+            }
+        }
+
+        doc().context = resized;
+        doc().hasSelection = false;
+        ResetTransient();
+        doc().zoom = FitZoom(std::max(newW, newH));
+        RebuildDisplay();
+    }
+
+    void MainWindow::OnResizeCanvas(IInspectable const&, RoutedEventArgs const&)
+    {
+        const int32_t size = SelectedSize();
+        ResizeCanvas(size, size);
+        StatusText().Text(L"Resized to " + winrt::to_hstring(size) + L" x " + winrt::to_hstring(size) + L".");
     }
 
     winrt::fire_and_forget MainWindow::OnSave(IInspectable const&, RoutedEventArgs const&)
@@ -884,6 +955,7 @@ namespace winrt::IconMaster::implementation
             auto context = winrt::IconMaster::DrawingContext(snap.w, snap.h);
             context.Color(doc().context.Color());
             doc().context = context;
+            doc().zoom = FitZoom(std::max(snap.w, snap.h));
         }
         for (int32_t y = 0; y < snap.h; ++y)
         {
