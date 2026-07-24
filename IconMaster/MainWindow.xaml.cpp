@@ -633,59 +633,12 @@ namespace winrt::IconMaster::implementation
         StatusText().Text(L"New " + winrt::to_hstring(w) + L" x " + winrt::to_hstring(h) + L" icon.");
     }
 
-    bool MainWindow::IsNewSquare()
-    {
-        auto ic = NewSquare().IsChecked();
-        return ic && ic.Value();
-    }
-
-    bool MainWindow::IsSquareResize()
-    {
-        auto ic = SquareResize().IsChecked();
-        return ic && ic.Value();
-    }
-
     void MainWindow::OnNewSizePreset(IInspectable const& sender, RoutedEventArgs const&)
     {
-        if (m_newDialogGuard) { return; }
         const auto tag = winrt::unbox_value_or<winrt::hstring>(sender.as<FrameworkElement>().Tag(), L"");
         const int32_t val = static_cast<int32_t>(std::wcstol(tag.c_str(), nullptr, 10));
         if (val <= 0) { return; }
-        m_newDialogGuard = true;
-        NewWidth().Value(val);
-        NewHeight().Value(val);
-        NewSquare().IsChecked(true);
-        m_newDialogGuard = false;
-    }
-
-    void MainWindow::OnNewSquareChecked(IInspectable const&, RoutedEventArgs const&)
-    {
-        if (m_newDialogGuard) { return; }
-        const double v = NewWidth().Value();
-        if (std::isnan(v)) { return; }
-        m_newDialogGuard = true;
-        NewHeight().Value(v);
-        m_newDialogGuard = false;
-    }
-
-    void MainWindow::OnNewWidthChanged(NumberBox const&, NumberBoxValueChangedEventArgs const& a)
-    {
-        if (m_newDialogGuard || !IsNewSquare()) { return; }
-        const double v = a.NewValue();
-        if (std::isnan(v)) { return; }
-        m_newDialogGuard = true;
-        NewHeight().Value(v);
-        m_newDialogGuard = false;
-    }
-
-    void MainWindow::OnNewHeightChanged(NumberBox const&, NumberBoxValueChangedEventArgs const& a)
-    {
-        if (m_newDialogGuard || !IsNewSquare()) { return; }
-        const double v = a.NewValue();
-        if (std::isnan(v)) { return; }
-        m_newDialogGuard = true;
-        NewWidth().Value(v);
-        m_newDialogGuard = false;
+        NewDims().SetSize(val, val);
     }
 
     winrt::fire_and_forget MainWindow::OnNew(IInspectable const&, RoutedEventArgs const&)
@@ -697,12 +650,8 @@ namespace winrt::IconMaster::implementation
 
         if (m_askOnNew)
         {
-            // Seed the dialog controls from the remembered size. The guard keeps the
-            // width/height/square sync handlers from firing during this setup.
-            m_newDialogGuard = true;
-            NewWidth().Value(m_newW);
-            NewHeight().Value(m_newH);
-            NewSquare().IsChecked(m_newW == m_newH);
+            // Seed the shared size control and select the matching preset (or Other).
+            NewDims().SetSize(m_newW, m_newH);
             NewDontAsk().IsChecked(false);
 
             winrt::Microsoft::UI::Xaml::Controls::RadioButton preset{ nullptr };
@@ -722,7 +671,6 @@ namespace winrt::IconMaster::implementation
             }
             if (preset != nullptr) { preset.IsChecked(true); }
             else                   { SizeOther().IsChecked(true); }
-            m_newDialogGuard = false;
 
             if (NewIconDialog().XamlRoot() == nullptr)
             {
@@ -733,10 +681,8 @@ namespace winrt::IconMaster::implementation
                 co_return;
             }
 
-            const double dw = NewWidth().Value();
-            const double dh = NewHeight().Value();
-            w = std::isnan(dw) ? m_newW : std::clamp(static_cast<int32_t>(std::lround(dw)), 1, 1024);
-            h = std::isnan(dh) ? m_newH : std::clamp(static_cast<int32_t>(std::lround(dh)), 1, 1024);
+            w = NewDims().SelectedWidth();
+            h = NewDims().SelectedHeight();
             m_newW = w;
             m_newH = h;
 
@@ -875,23 +821,15 @@ namespace winrt::IconMaster::implementation
         StatusText().Text(L"Saved " + file.Name());
     }
 
-    winrt::fire_and_forget MainWindow::OnResizeImage(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args)
+    winrt::fire_and_forget MainWindow::OnResizeImage(winrt::Windows::Foundation::IInspectable const&, winrt::Microsoft::UI::Xaml::RoutedEventArgs const&)
     {
-        namespace WGI = winrt::Windows::Graphics::Imaging;
-
         auto lifetime = get_strong();
         if (doc().context == nullptr)
         {
             co_return;
         }
 
-        m_resizeDialogGuard = true;
-        auto width = doc().context.PixelWidth();
-        auto height = doc().context.PixelHeight();
-        ResizedWidth().Value(width);
-        ResizedHeight().Value(height);
-        SquareResize().IsChecked(width == height);
-        m_resizeDialogGuard = false;
+        ResizeDims().SetSize(doc().context.PixelWidth(), doc().context.PixelHeight());
 
         if (ResizeImageDialog().XamlRoot() == nullptr)
         {
@@ -903,44 +841,14 @@ namespace winrt::IconMaster::implementation
             co_return;
         }
 
-        const int32_t newW = (int32_t) ResizedWidth().Value();
-        const int32_t newH = (int32_t) ResizedHeight().Value();
+        const int32_t newW = ResizeDims().SelectedWidth();
+        const int32_t newH = ResizeDims().SelectedHeight();
         ResizeCanvas(newW, newH);
         auto statusBar = StatusText();
         if (statusBar != nullptr)
         {
             statusBar.Text(L"Resized to " + winrt::to_hstring(newW) + L" x " + winrt::to_hstring(newH) + L".");
         }
-    }
-
-    void MainWindow::OnSquareResizeChecked(IInspectable const& sender, RoutedEventArgs const& args)
-    {
-        if (m_resizeDialogGuard) { return; }
-        const double v = ResizedWidth().Value();
-        if (std::isnan(v)) { return; }
-        m_resizeDialogGuard = true;
-        ResizedHeight().Value(v);
-        m_resizeDialogGuard = false;
-    }
-
-    void MainWindow::OnResizedWidthChanged(NumberBox const& sender, NumberBoxValueChangedEventArgs const& args)
-    {
-        if (m_resizeDialogGuard || !IsSquareResize()) { return; }
-        const double v = args.NewValue();
-        if (std::isnan(v)) { return; }
-        m_resizeDialogGuard = true;
-        ResizedHeight().Value(v);
-        m_resizeDialogGuard = false;
-    }
-
-    void MainWindow::OnResizedHeightChanged(NumberBox const& sender, NumberBoxValueChangedEventArgs const& args)
-    {
-        if (m_resizeDialogGuard || !IsSquareResize()) { return; }
-        const double v = args.NewValue();
-        if (std::isnan(v)) { return; }
-        m_resizeDialogGuard = true;
-        ResizedWidth().Value(v);
-        m_resizeDialogGuard = false;
     }
 
     winrt::fire_and_forget MainWindow::OnOpen(IInspectable const&, RoutedEventArgs const&)
