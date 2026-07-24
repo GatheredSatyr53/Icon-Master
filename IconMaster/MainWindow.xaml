@@ -15,7 +15,7 @@
     </Window.SystemBackdrop>
 
 
-    <Grid Padding="12" ColumnSpacing="12">
+    <Grid Padding="12,0,12,12" ColumnSpacing="12">
         <Grid.Resources>
             <ResourceDictionary>
                 <ResourceDictionary.MergedDictionaries>
@@ -24,6 +24,7 @@
             </ResourceDictionary>
         </Grid.Resources>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
@@ -35,7 +36,7 @@
 
         <MenuBar Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
             <MenuBarItem Title="File">
-                <MenuFlyoutItem Text="New" Click="OnNew">
+                <MenuFlyoutItem Text="New..." Click="OnNew">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="N"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
@@ -57,6 +58,19 @@
                     </MenuFlyoutItem.KeyboardAccelerators>
                     <MenuFlyoutItem.Icon>
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74E;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Save As..." Click="OnSaveAs">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control,Shift" Key="S"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE792;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Save Copy..." Click="OnSaveCopy">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEA35;" FontSize="16" />
                     </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutSeparator/>
@@ -165,171 +179,182 @@
             </MenuBarItem>
 
         </MenuBar>
-        
-        <!-- Toolbox -->
-        <ScrollViewer Grid.Row="1" Grid.Column="0"
+
+        <Border Grid.Row="1" Grid.Column="0" Grid.RowSpan="2" Style="{StaticResource WorkspacePanelStyle}">
+            <!-- Toolbox -->
+            <ScrollViewer
                       Style="{StaticResource ToolbarScrollPanelStyle}"
                       VerticalScrollBarVisibility="Auto">
-            <StackPanel Spacing="6" Width="104">
-                <StackPanel.Resources>
-                    <!-- Compact, icon-only toolbar buttons. Labels live in tooltips. -->
-                    <Style TargetType="Button">
-                        <Setter Property="Width" Value="48" />
-                        <Setter Property="Height" Value="38" />
-                        <Setter Property="Padding" Value="0" />
-                    </Style>
-                    <Style TargetType="RadioButton" BasedOn="{StaticResource ToolButtonStyle}">
-                        <Setter Property="Width" Value="48" />
-                        <Setter Property="Height" Value="38" />
-                        <Setter Property="Padding" Value="0" />
-                        <Setter Property="MinWidth" Value="0" />
-                    </Style>
-                </StackPanel.Resources>
-                
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <RadioButton Tag="pen" GroupName="tools" IsChecked="True"
+                <StackPanel Spacing="6" Width="104">
+                    <StackPanel.Resources>
+                        <!-- Compact, icon-only toolbar buttons. Labels live in tooltips. -->
+                        <Style TargetType="Button">
+                            <Setter Property="Width" Value="48" />
+                            <Setter Property="Height" Value="38" />
+                            <Setter Property="Padding" Value="0" />
+                        </Style>
+                        <Style TargetType="RadioButton" BasedOn="{StaticResource ToolButtonStyle}">
+                            <Setter Property="Width" Value="48" />
+                            <Setter Property="Height" Value="38" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="MinWidth" Value="0" />
+                        </Style>
+                    </StackPanel.Resources>
+
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <RadioButton Tag="pen" GroupName="tools" IsChecked="True"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Pen">
-                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="16" />
-                    </RadioButton>
-                    <RadioButton Tag="eraser" GroupName="tools"
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="16" />
+                        </RadioButton>
+                        <RadioButton Tag="eraser" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Eraser">
-                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE75C;" FontSize="16" />
-                    </RadioButton>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <RadioButton Tag="fill" GroupName="tools"
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE75C;" FontSize="16" />
+                        </RadioButton>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <RadioButton Tag="fill" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Fill">
-                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE790;" FontSize="16" />
-                    </RadioButton>
-                    <RadioButton Tag="eyedropper" GroupName="tools"
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE790;" FontSize="16" />
+                        </RadioButton>
+                        <RadioButton Tag="eyedropper" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Eyedropper">
-                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEF3C;" FontSize="16" />
-                    </RadioButton>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <RadioButton Tag="line" GroupName="tools"
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEF3C;" FontSize="16" />
+                        </RadioButton>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <RadioButton Tag="line" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Line">
-                        <PathIcon Width="16" Height="16"
+                            <PathIcon Width="16" Height="16"
                               Data="M2.2,12.2 L3.8,13.8 L13.8,3.8 L12.2,2.2 Z" />
-                    </RadioButton>
-                    <RadioButton Tag="rectangle" GroupName="tools"
+                        </RadioButton>
+                        <RadioButton Tag="rectangle" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Rectangle">
-                        <PathIcon Width="16" Height="16"
+                            <PathIcon Width="16" Height="16"
                               Data="F0 M2,4 H14 V12 H2 Z M4,6 H12 V10 H4 Z" />
-                    </RadioButton>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <RadioButton Tag="ellipse" GroupName="tools"
+                        </RadioButton>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <RadioButton Tag="ellipse" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Ellipse">
-                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEA3A;" FontSize="16" />
-                    </RadioButton>
-                    <RadioButton Tag="select" GroupName="tools"
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEA3A;" FontSize="16" />
+                        </RadioButton>
+                        <RadioButton Tag="select" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Select">
-                        <PathIcon Width="16" Height="16"
+                            <PathIcon Width="16" Height="16"
                               Data="M2,3 H6 V4 H3 V7 H2 Z M14,3 H10 V4 H13 V7 H14 Z M2,13 H6 V12 H3 V9 H2 Z M14,13 H10 V12 H13 V9 H14 Z" />
-                    </RadioButton>
+                        </RadioButton>
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
-        </ScrollViewer>
+            </ScrollViewer>
+        </Border>
 
-        <!-- Canvas area -->
-        <Grid Grid.Row="1" Grid.Column="1" RowSpacing="8" Style="{StaticResource WorkspaceStyle}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <TabView x:Name="Tabs" Grid.Row="0"
+        <TabView x:Name="Tabs" Grid.Row="1" Grid.Column="1"
                      IsAddTabButtonVisible="True"
                      SelectionChanged="OnTabSelectionChanged"
                      AddTabButtonClick="OnAddTab"
-                     TabCloseRequested="OnTabCloseRequested">
-            </TabView>
+                     TabCloseRequested="OnTabCloseRequested"
+                     Padding="12,0,0,0"
+                     Canvas.ZIndex="1"
+                     Margin="0,0,0,-1">
+            <TabView.Resources>
+                <SolidColorBrush x:Key="TabViewBorderBrush" Color="Transparent"/>
+                <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="{ThemeResource LayerFillColorDefault}"/>
+            </TabView.Resources>
+        </TabView>
+        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource WorkspacePanelStyle}">
+            <!-- Canvas area -->
+            <Grid RowSpacing="8" BorderBrush="Transparent">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Button Content="&#x2212;" Click="OnZoomOut" ToolTipService.ToolTip="Zoom out" />
-                <TextBlock x:Name="ZoomText" VerticalAlignment="Center" MinWidth="52" TextAlignment="Center" Text="1600%" />
-                <Button Content="&#x2b;" Click="OnZoomIn" ToolTipService.ToolTip="Zoom in" />
-            </StackPanel>
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Content="&#x2212;" Click="OnZoomOut" ToolTipService.ToolTip="Zoom out" />
+                    <TextBlock x:Name="ZoomText" VerticalAlignment="Center" MinWidth="52" TextAlignment="Center" Text="1600%" />
+                    <Button Content="&#x2b;" Click="OnZoomIn" ToolTipService.ToolTip="Zoom in" />
+                </StackPanel>
 
-            <ScrollViewer Grid.Row="2"
+                <ScrollViewer Grid.Row="1"
                           ZoomMode="Disabled"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollMode="Auto"
                           VerticalScrollMode="Auto"
                           Background="#FF808080">
-                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
+                    <Border HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
                         BorderBrush="#FF404040" BorderThickness="1">
-                    <Image x:Name="CanvasImage"
+                        <Image x:Name="CanvasImage"
                            Stretch="None"
                            PointerPressed="OnCanvasPointerPressed"
                            PointerMoved="OnCanvasPointerMoved"
                            PointerReleased="OnCanvasPointerReleased" />
-                </Border>
-            </ScrollViewer>
-
-            <TextBlock x:Name="StatusText" Grid.Row="3" Text="Left button draws, right button erases." />
-        </Grid>
-
-        <!-- Palette -->
-        <StackPanel Grid.Row="1" Grid.Column="2" Spacing="8" Style="{StaticResource ToolbarPanelStyle}">
-            <TextBlock Text="Colour" Style="{StaticResource CaptionTextBlockStyle}" />
-
-            <StackPanel Orientation="Horizontal" Spacing="4">
-                <Button Click="OnSwatchClick" Tag="#FF000000" Padding="0" ToolTipService.ToolTip="Black">
-                    <Border Width="22" Height="22" Background="#FF000000" />
-                </Button>
-                <Button Click="OnSwatchClick" Tag="#FF808080" Padding="0" ToolTipService.ToolTip="Gray">
-                    <Border Width="22" Height="22" Background="#FF808080" />
-                </Button>
-                <Button Click="OnSwatchClick" Tag="#FFFFFFFF" Padding="0" ToolTipService.ToolTip="White">
-                    <Border Width="22" Height="22" Background="#FFFFFFFF" BorderBrush="Gray" BorderThickness="1" />
-                </Button>
-                <Button Click="OnSwatchClick" Tag="#FFE81123" Padding="0" ToolTipService.ToolTip="Red">
-                    <Border Width="22" Height="22" Background="#FFE81123" />
-                </Button>
-                <Button Click="OnSwatchClick" Tag="#FFFF8C00" Padding="0" ToolTipService.ToolTip="Orange">
-                    <Border Width="22" Height="22" Background="#FFFF8C00" />
-                </Button>
-                <Button Click="OnSwatchClick" Tag="#FFFFF100" Padding="0" ToolTipService.ToolTip="Yellow">
-                    <Border Width="22" Height="22" Background="#FFFFF100" />
-                </Button>
-            </StackPanel>
-
-            <StackPanel Orientation="Horizontal" Spacing="4">
-                <Button Click="OnSwatchClick" Tag="#FF107C10" Padding="0" ToolTipService.ToolTip="Green">
-                    <Border Width="22" Height="22" Background="#FF107C10" />
-                </Button>
-                <Button Click="OnSwatchClick" Tag="#FF0078D7" Padding="0" ToolTipService.ToolTip="Blue">
-                    <Border Width="22" Height="22" Background="#FF0078D7" />
-                </Button>
-                <Button Click="OnSwatchClick" Tag="#FF00B7C3" Padding="0" ToolTipService.ToolTip="Cyan">
-                    <Border Width="22" Height="22" Background="#FF00B7C3" />
-                </Button>
-                <Button Click="OnSwatchClick" Tag="#FF881798" Padding="0" ToolTipService.ToolTip="Purple">
-                    <Border Width="22" Height="22" Background="#FF881798" />
-                </Button>
-                <Button Click="OnSwatchClick" Tag="#FF8E562E" Padding="0" ToolTipService.ToolTip="Brown">
-                    <Border Width="22" Height="22" Background="#FF8E562E" />
-                </Button>
-                <Button Click="OnSwatchClick" Tag="#00000000" Padding="0" ToolTipService.ToolTip="Transparent">
-                    <Border Width="22" Height="22" BorderBrush="Gray" BorderThickness="1">
-                        <TextBlock Text="&#xE894;" FontFamily="Segoe MDL2 Assets" FontSize="12"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                </Button>
-            </StackPanel>
+                </ScrollViewer>
 
-            <ColorPicker x:Name="ColorPickerControl"
+                <TextBlock x:Name="StatusText" Grid.Row="2" Text="Left button draws, right button erases." />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="2" Grid.RowSpan="2" Style="{StaticResource WorkspacePanelStyle}">
+            <!-- Palette -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Colour" Style="{StaticResource CaptionTextBlockStyle}" />
+
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <Button Click="OnSwatchClick" Tag="#FF000000" Padding="0" ToolTipService.ToolTip="Black">
+                        <Border Width="22" Height="22" Background="#FF000000" />
+                    </Button>
+                    <Button Click="OnSwatchClick" Tag="#FF808080" Padding="0" ToolTipService.ToolTip="Gray">
+                        <Border Width="22" Height="22" Background="#FF808080" />
+                    </Button>
+                    <Button Click="OnSwatchClick" Tag="#FFFFFFFF" Padding="0" ToolTipService.ToolTip="White">
+                        <Border Width="22" Height="22" Background="#FFFFFFFF" BorderBrush="Gray" BorderThickness="1" />
+                    </Button>
+                    <Button Click="OnSwatchClick" Tag="#FFE81123" Padding="0" ToolTipService.ToolTip="Red">
+                        <Border Width="22" Height="22" Background="#FFE81123" />
+                    </Button>
+                    <Button Click="OnSwatchClick" Tag="#FFFF8C00" Padding="0" ToolTipService.ToolTip="Orange">
+                        <Border Width="22" Height="22" Background="#FFFF8C00" />
+                    </Button>
+                    <Button Click="OnSwatchClick" Tag="#FFFFF100" Padding="0" ToolTipService.ToolTip="Yellow">
+                        <Border Width="22" Height="22" Background="#FFFFF100" />
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <Button Click="OnSwatchClick" Tag="#FF107C10" Padding="0" ToolTipService.ToolTip="Green">
+                        <Border Width="22" Height="22" Background="#FF107C10" />
+                    </Button>
+                    <Button Click="OnSwatchClick" Tag="#FF0078D7" Padding="0" ToolTipService.ToolTip="Blue">
+                        <Border Width="22" Height="22" Background="#FF0078D7" />
+                    </Button>
+                    <Button Click="OnSwatchClick" Tag="#FF00B7C3" Padding="0" ToolTipService.ToolTip="Cyan">
+                        <Border Width="22" Height="22" Background="#FF00B7C3" />
+                    </Button>
+                    <Button Click="OnSwatchClick" Tag="#FF881798" Padding="0" ToolTipService.ToolTip="Purple">
+                        <Border Width="22" Height="22" Background="#FF881798" />
+                    </Button>
+                    <Button Click="OnSwatchClick" Tag="#FF8E562E" Padding="0" ToolTipService.ToolTip="Brown">
+                        <Border Width="22" Height="22" Background="#FF8E562E" />
+                    </Button>
+                    <Button Click="OnSwatchClick" Tag="#00000000" Padding="0" ToolTipService.ToolTip="Transparent">
+                        <Border Width="22" Height="22" BorderBrush="Gray" BorderThickness="1">
+                            <TextBlock Text="&#xE894;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Button>
+                </StackPanel>
+
+                <ColorPicker x:Name="ColorPickerControl"
                          IsAlphaEnabled="True"
                          IsMoreButtonVisible="True"
                          ColorSpectrumShape="Box"
                          ColorChanged="OnColorChanged"
                          />
-        </StackPanel>
+            </StackPanel>
+        </Border>
 
         <!-- Dialogs. Declared in the tree so they inherit the XamlRoot and pick up
              the merged styles; they render nothing until ShowAsync is called. -->
