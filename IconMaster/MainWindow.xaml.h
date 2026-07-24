@@ -3,6 +3,8 @@
 #include "MainWindow.g.h"
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Storage.h>
 #include <vector>
 
 namespace winrt::IconMaster::implementation
@@ -31,7 +33,6 @@ namespace winrt::IconMaster::implementation
         void OnResizeCanvas(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& args);
         winrt::fire_and_forget OnOpen(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnSave(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
-        winrt::fire_and_forget OnExportIco(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
         void OnUndo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnRedo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -48,6 +49,7 @@ namespace winrt::IconMaster::implementation
         void ResizeCanvas(int32_t newW, int32_t newH); // resize the active canvas, top-left anchored
         void ResetTransient();
         std::vector<uint8_t> ScaleCanvas(int32_t target); // nearest-neighbour, BGRA8
+        winrt::Windows::Foundation::IAsyncAction WriteIcoAsync(winrt::Windows::Storage::StorageFile file); // multi-size ICO
 
         // Undo/redo via full-canvas snapshots.
         struct Snapshot { int32_t w; int32_t h; std::vector<winrt::Windows::UI::Color> pixels; };

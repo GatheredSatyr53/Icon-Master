@@ -883,10 +883,56 @@ namespace winrt::IconMaster::implementation
 
     winrt::fire_and_forget MainWindow::OnSave(IInspectable const&, RoutedEventArgs const&)
     {
+        namespace WGI = winrt::Windows::Graphics::Imaging;
+
         auto lifetime = get_strong();
         if (doc().context == nullptr)
         {
             co_return;
+        }
+
+        // Ask the user which image format to save. There are more raster formats
+        // than PNG (BMP, JPEG, GIF, TIFF), plus the multi-size Windows ICO.
+        ComboBox formatBox;
+        formatBox.Header(winrt::box_value(L"Format"));
+        for (auto const& label : { L"PNG image (*.png)", L"BMP image (*.bmp)", L"JPEG image (*.jpg)",
+                                   L"GIF image (*.gif)", L"TIFF image (*.tiff)", L"Windows icon (*.ico)" })
+        {
+            ComboBoxItem item;
+            item.Content(winrt::box_value(winrt::hstring{ label }));
+            formatBox.Items().Append(item);
+        }
+        formatBox.SelectedIndex(0);
+        formatBox.HorizontalAlignment(HorizontalAlignment::Stretch);
+
+        StackPanel root;
+        root.Spacing(8);
+        root.Children().Append(formatBox);
+
+        ContentDialog dialog;
+        dialog.Title(winrt::box_value(L"Save image"));
+        dialog.PrimaryButtonText(L"Save");
+        dialog.CloseButtonText(L"Cancel");
+        dialog.DefaultButton(ContentDialogButton::Primary);
+        dialog.Content(root);
+        dialog.XamlRoot(this->Content().XamlRoot());
+
+        if (co_await dialog.ShowAsync() != ContentDialogResult::Primary)
+        {
+            co_return;
+        }
+
+        winrt::hstring typeName, ext;
+        winrt::guid encoderId{};
+        bool isIco = false;
+        switch (formatBox.SelectedIndex())
+        {
+        case 1:  typeName = L"BMP image";    ext = L".bmp";  encoderId = WGI::BitmapEncoder::BmpEncoderId();  break;
+        case 2:  typeName = L"JPEG image";   ext = L".jpg";  encoderId = WGI::BitmapEncoder::JpegEncoderId(); break;
+        case 3:  typeName = L"GIF image";    ext = L".gif";  encoderId = WGI::BitmapEncoder::GifEncoderId();  break;
+        case 4:  typeName = L"TIFF image";   ext = L".tiff"; encoderId = WGI::BitmapEncoder::TiffEncoderId(); break;
+        case 5:  typeName = L"Windows icon"; ext = L".ico";  isIco = true;                                    break;
+        default: typeName = L"PNG image";    ext = L".png";  encoderId = WGI::BitmapEncoder::PngEncoderId();  break;
         }
 
         winrt::Windows::Storage::Pickers::FileSavePicker picker;
@@ -899,7 +945,7 @@ namespace winrt::IconMaster::implementation
         }
         picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
         picker.SuggestedFileName(L"icon");
-        picker.FileTypeChoices().Insert(L"PNG image", winrt::single_threaded_vector<winrt::hstring>({ L".png" }));
+        picker.FileTypeChoices().Insert(typeName, winrt::single_threaded_vector<winrt::hstring>({ ext }));
 
         auto file = co_await picker.PickSaveFileAsync();
         if (file == nullptr)
@@ -907,31 +953,38 @@ namespace winrt::IconMaster::implementation
             co_return;
         }
 
-        const int32_t w = doc().context.PixelWidth();
-        const int32_t h = doc().context.PixelHeight();
-        std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
-        for (int32_t y = 0; y < h; ++y)
+        if (isIco)
         {
-            for (int32_t x = 0; x < w; ++x)
-            {
-                const auto c = doc().context.GetPixel(x, y);
-                const size_t i = (static_cast<size_t>(y) * w + x) * 4;
-                bytes[i + 0] = c.B;
-                bytes[i + 1] = c.G;
-                bytes[i + 2] = c.R;
-                bytes[i + 3] = c.A;
-            }
+            co_await WriteIcoAsync(file);
         }
+        else
+        {
+            const int32_t w = doc().context.PixelWidth();
+            const int32_t h = doc().context.PixelHeight();
+            std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
+            for (int32_t y = 0; y < h; ++y)
+            {
+                for (int32_t x = 0; x < w; ++x)
+                {
+                    const auto c = doc().context.GetPixel(x, y);
+                    const size_t i = (static_cast<size_t>(y) * w + x) * 4;
+                    bytes[i + 0] = c.B;
+                    bytes[i + 1] = c.G;
+                    bytes[i + 2] = c.R;
+                    bytes[i + 3] = c.A;
+                }
+            }
 
-        auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::ReadWrite);
-        auto encoder = co_await winrt::Windows::Graphics::Imaging::BitmapEncoder::CreateAsync(
-            winrt::Windows::Graphics::Imaging::BitmapEncoder::PngEncoderId(), stream);
-        encoder.SetPixelData(
-            winrt::Windows::Graphics::Imaging::BitmapPixelFormat::Bgra8,
-            winrt::Windows::Graphics::Imaging::BitmapAlphaMode::Straight,
-            static_cast<uint32_t>(w), static_cast<uint32_t>(h),
-            96.0, 96.0, bytes);
-        co_await encoder.FlushAsync();
+            auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::ReadWrite);
+            stream.Size(0); // truncate any previous content when overwriting
+            auto encoder = co_await WGI::BitmapEncoder::CreateAsync(encoderId, stream);
+            encoder.SetPixelData(
+                WGI::BitmapPixelFormat::Bgra8,
+                WGI::BitmapAlphaMode::Straight,
+                static_cast<uint32_t>(w), static_cast<uint32_t>(h),
+                96.0, 96.0, bytes);
+            co_await encoder.FlushAsync();
+        }
 
         StatusText().Text(L"Saved " + file.Name());
     }
@@ -1015,31 +1068,9 @@ namespace winrt::IconMaster::implementation
         return out;
     }
 
-    winrt::fire_and_forget MainWindow::OnExportIco(IInspectable const&, RoutedEventArgs const&)
+    winrt::Windows::Foundation::IAsyncAction MainWindow::WriteIcoAsync(winrt::Windows::Storage::StorageFile file)
     {
         auto lifetime = get_strong();
-        if (doc().context == nullptr)
-        {
-            co_return;
-        }
-
-        winrt::Windows::Storage::Pickers::FileSavePicker picker;
-        {
-            auto windowNative = this->try_as<::IWindowNative>();
-            HWND hwnd{};
-            winrt::check_hresult(windowNative->get_WindowHandle(&hwnd));
-            auto initWithWindow = picker.as<::IInitializeWithWindow>();
-            winrt::check_hresult(initWithWindow->Initialize(hwnd));
-        }
-        picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
-        picker.SuggestedFileName(L"icon");
-        picker.FileTypeChoices().Insert(L"Windows icon", winrt::single_threaded_vector<winrt::hstring>({ L".ico" }));
-
-        auto file = co_await picker.PickSaveFileAsync();
-        if (file == nullptr)
-        {
-            co_return;
-        }
 
         // Render each icon size to a PNG blob (ICO may embed PNG-compressed images).
         const int32_t sizes[] = { 16, 32, 48, 256 };
@@ -1109,7 +1140,6 @@ namespace winrt::IconMaster::implementation
         }
 
         co_await winrt::Windows::Storage::FileIO::WriteBytesAsync(file, ico);
-        StatusText().Text(L"Exported " + file.Name() + L" (16, 32, 48, 256)");
     }
 
     // ---- History ------------------------------------------------------------
