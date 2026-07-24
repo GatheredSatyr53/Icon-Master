@@ -38,6 +38,7 @@
     <ClCompile Include="LineTool.cpp" />
     <ClCompile Include="RectangleTool.cpp" />
     <ClCompile Include="EllipseTool.cpp" />
+    <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Midl Include="Editor.idl" />
@@ -86,5 +87,8 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="IconMaster.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="ResourceDictionary.xaml" />
   </ItemGroup>
 </Project>

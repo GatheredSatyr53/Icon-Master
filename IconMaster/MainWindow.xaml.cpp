@@ -870,11 +870,15 @@ namespace winrt::IconMaster::implementation
         RebuildDisplay();
     }
 
-    void MainWindow::OnResizeCanvas(IInspectable const&, RoutedEventArgs const&)
+    void MainWindow::OnResizeCanvas(IInspectable const&, SelectionChangedEventArgs const&)
     {
         const int32_t size = SelectedSize();
         ResizeCanvas(size, size);
-        StatusText().Text(L"Resized to " + winrt::to_hstring(size) + L" x " + winrt::to_hstring(size) + L".");
+        auto statusBar = StatusText();
+        if (statusBar != nullptr)
+        {
+            statusBar.Text(L"Resized to " + winrt::to_hstring(size) + L" x " + winrt::to_hstring(size) + L".");
+        }
     }
 
     winrt::fire_and_forget MainWindow::OnSave(IInspectable const&, RoutedEventArgs const&)
