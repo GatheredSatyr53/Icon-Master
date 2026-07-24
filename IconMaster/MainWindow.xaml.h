@@ -3,6 +3,8 @@
 #include "MainWindow.g.h"
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Storage.h>
 #include <vector>
 
 namespace winrt::IconMaster::implementation
@@ -27,10 +29,11 @@ namespace winrt::IconMaster::implementation
         void OnPaste(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnDelete(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
-        void OnNew(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        winrt::fire_and_forget OnNew(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnNewSizePreset(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnOpen(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnSave(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
-        winrt::fire_and_forget OnExportIco(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        winrt::fire_and_forget OnResizeImage(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
         void OnUndo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnRedo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -40,10 +43,13 @@ namespace winrt::IconMaster::implementation
         void OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const& sender, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args);
 
     private:
-        void NewDocument();
+        void NewDocument(int32_t w, int32_t h);
         void AddDocument(winrt::IconMaster::DrawingContext const& context, winrt::hstring const& title, int32_t zoom);
+        static int32_t FitZoom(int32_t maxDim);        // zoom that fits a maxDim-wide canvas on screen
+        void ResizeCanvas(int32_t newW, int32_t newH); // resize the active canvas, top-left anchored
         void ResetTransient();
         std::vector<uint8_t> ScaleCanvas(int32_t target); // nearest-neighbour, BGRA8
+        winrt::Windows::Foundation::IAsyncAction WriteIcoAsync(winrt::Windows::Storage::StorageFile file); // multi-size ICO
 
         // Undo/redo via full-canvas snapshots.
         struct Snapshot { int32_t w; int32_t h; std::vector<winrt::Windows::UI::Color> pixels; };
@@ -143,6 +149,11 @@ namespace winrt::IconMaster::implementation
         size_t m_active{ 0 };
         bool m_updatingTabs{ false };  // suppress tab handlers during programmatic changes
         int32_t m_docCounter{ 0 };     // for default document titles
+
+        // Remembered "New icon" dialog choices.
+        int32_t m_newW{ k_canvasSize };
+        int32_t m_newH{ k_canvasSize };
+        bool m_askOnNew{ true };        // false => "Don't ask again": reuse the remembered size
 
         winrt::IconMaster::Pen m_pen{ nullptr };
         winrt::IconMaster::Eraser m_eraser{ nullptr };

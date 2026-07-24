@@ -114,6 +114,9 @@
     <ClInclude Include="MainWindow.xaml.h">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClInclude>
+    <ClInclude Include="SizeInput.xaml.h">
+      <DependentUpon>SizeInput.xaml</DependentUpon>
+    </ClInclude>
     <ClInclude Include="DrawingContext.h" />
     <ClInclude Include="Pen.h" />
     <ClInclude Include="Eraser.h" />
@@ -133,6 +136,9 @@
     <ClCompile Include="MainWindow.xaml.cpp">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClCompile>
+    <ClCompile Include="SizeInput.xaml.cpp">
+      <DependentUpon>SizeInput.xaml</DependentUpon>
+    </ClCompile>
     <ClCompile Include="DrawingContext.cpp" />
     <ClCompile Include="Pen.cpp" />
     <ClCompile Include="Eraser.cpp" />
@@ -146,6 +152,7 @@
   <ItemGroup>
     <Midl Include="Editor.idl" />
     <Midl Include="MainWindow.idl" />
+    <Midl Include="SizeInput.idl" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
@@ -154,6 +161,10 @@
     <Page Include="MainWindow.xaml">
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="SizeInput.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ResourceDictionary.xaml" />
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="app.manifest" />

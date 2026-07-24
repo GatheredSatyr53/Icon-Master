@@ -9,107 +9,231 @@
     mc:Ignorable="d"
     Title="Icon Master">
 
+    <!-- Mica -->
+    <Window.SystemBackdrop>
+        <MicaBackdrop/>
+    </Window.SystemBackdrop>
+
+
     <Grid Padding="12" ColumnSpacing="12">
+        <Grid.Resources>
+            <ResourceDictionary>
+                <ResourceDictionary.MergedDictionaries>
+                    <ResourceDictionary Source="/ResourceDictionary.xaml"/>
+                </ResourceDictionary.MergedDictionaries>
+            </ResourceDictionary>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
 
+        <MenuBar Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
+            <MenuBarItem Title="File">
+                <MenuFlyoutItem Text="New" Click="OnNew">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="N"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8A5;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Open..." Click="OnOpen">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="O"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xED25;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Save..." Click="OnSave">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="S"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74E;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
+                <MenuFlyoutItem Text="Exit">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="E"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8BB;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuBarItem>
+
+            <MenuBarItem Title="Edit">
+                <MenuFlyoutItem Text="Undo" Click="OnUndo">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="Z"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7A7;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Redo" Click="OnRedo">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="Y"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7A6;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
+                <MenuFlyoutItem Text="Copy" Click="OnCopy">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="C"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8C8;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Cut" Click="OnCut">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="X"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8C6;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Paste" Click="OnPaste">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="V"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE77F;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuBarItem>
+
+            <MenuBarItem Title="Selection">
+                <MenuFlyoutItem Text="Select All" Click="OnSelectAll">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="A"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8B3;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Deselect" Click="OnDeselect">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="Escape"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8E6;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
+                <MenuFlyoutItem Text="Delete" Click="OnDelete">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="Delete"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74D;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuBarItem>
+
+            <MenuBarItem Title="Image">
+                <MenuFlyoutItem Text="Resize Image..." Click="OnResizeImage">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="R"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE740;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuBarItem>
+
+            <MenuBarItem Title="Help">
+                <MenuFlyoutItem Text="About">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="I"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE946;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuBarItem>
+
+        </MenuBar>
+        
         <!-- Toolbox -->
-        <ScrollViewer Grid.Column="0"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollMode="Disabled"
-                      HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="6" Width="108">
-            <TextBlock Text="File" Style="{StaticResource CaptionTextBlockStyle}" />
-            <Button Content="New" Click="OnNew" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="N" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Open&#x2026;" Click="OnOpen" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="O" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Save&#x2026;" Click="OnSave" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="S" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Export ICO&#x2026;" Click="OnExportIco" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="E" />
-                </Button.KeyboardAccelerators>
-            </Button>
-
-            <TextBlock Text="Edit" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
-            <Button Content="Undo" Click="OnUndo" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="Z" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Redo" Click="OnRedo" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="Y" />
-                </Button.KeyboardAccelerators>
-            </Button>
-
-            <TextBlock Text="Tools" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
-            <RadioButton Content="Pen" Tag="pen" GroupName="tools" IsChecked="True"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Eraser" Tag="eraser" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Fill" Tag="fill" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Pick" Tag="eyedropper" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Line" Tag="line" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Rectangle" Tag="rectangle" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Ellipse" Tag="ellipse" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-            <RadioButton Content="Select" Tag="select" GroupName="tools"
-                         HorizontalAlignment="Stretch" Checked="OnToolSelected" />
-
-            <TextBlock Text="Selection" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
-            <Button Content="Select all" Click="OnSelectAll" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="A" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Deselect" Click="OnDeselect" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="Escape" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Copy" Click="OnCopy" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="C" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Cut" Click="OnCut" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="X" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Paste" Click="OnPaste" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Modifiers="Control" Key="V" />
-                </Button.KeyboardAccelerators>
-            </Button>
-            <Button Content="Delete" Click="OnDelete" HorizontalAlignment="Stretch">
-                <Button.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="Delete" />
-                </Button.KeyboardAccelerators>
-            </Button>
-        </StackPanel>
+        <ScrollViewer Grid.Row="1" Grid.Column="0"
+                      Style="{StaticResource ToolbarScrollPanelStyle}"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="6" Width="104">
+                <StackPanel.Resources>
+                    <!-- Compact, icon-only toolbar buttons. Labels live in tooltips. -->
+                    <Style TargetType="Button">
+                        <Setter Property="Width" Value="48" />
+                        <Setter Property="Height" Value="38" />
+                        <Setter Property="Padding" Value="0" />
+                    </Style>
+                    <Style TargetType="RadioButton" BasedOn="{StaticResource ToolButtonStyle}">
+                        <Setter Property="Width" Value="48" />
+                        <Setter Property="Height" Value="38" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="MinWidth" Value="0" />
+                    </Style>
+                </StackPanel.Resources>
+                
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <RadioButton Tag="pen" GroupName="tools" IsChecked="True"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Pen">
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="16" />
+                    </RadioButton>
+                    <RadioButton Tag="eraser" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Eraser">
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE75C;" FontSize="16" />
+                    </RadioButton>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <RadioButton Tag="fill" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Fill">
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE790;" FontSize="16" />
+                    </RadioButton>
+                    <RadioButton Tag="eyedropper" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Eyedropper">
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEF3C;" FontSize="16" />
+                    </RadioButton>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <RadioButton Tag="line" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Line">
+                        <PathIcon Width="16" Height="16"
+                              Data="M2.2,12.2 L3.8,13.8 L13.8,3.8 L12.2,2.2 Z" />
+                    </RadioButton>
+                    <RadioButton Tag="rectangle" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Rectangle">
+                        <PathIcon Width="16" Height="16"
+                              Data="F0 M2,4 H14 V12 H2 Z M4,6 H12 V10 H4 Z" />
+                    </RadioButton>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <RadioButton Tag="ellipse" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Ellipse">
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEA3A;" FontSize="16" />
+                    </RadioButton>
+                    <RadioButton Tag="select" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Select">
+                        <PathIcon Width="16" Height="16"
+                              Data="M2,3 H6 V4 H3 V7 H2 Z M14,3 H10 V4 H13 V7 H14 Z M2,13 H6 V12 H3 V9 H2 Z M14,13 H10 V12 H13 V9 H14 Z" />
+                    </RadioButton>
+                </StackPanel>
+            </StackPanel>
         </ScrollViewer>
 
         <!-- Canvas area -->
-        <Grid Grid.Column="1" RowSpacing="8">
+        <Grid Grid.Row="1" Grid.Column="1" RowSpacing="8" Style="{StaticResource WorkspaceStyle}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -121,7 +245,8 @@
                      IsAddTabButtonVisible="True"
                      SelectionChanged="OnTabSelectionChanged"
                      AddTabButtonClick="OnAddTab"
-                     TabCloseRequested="OnTabCloseRequested" />
+                     TabCloseRequested="OnTabCloseRequested">
+            </TabView>
 
             <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <Button Content="&#x2212;" Click="OnZoomOut" ToolTipService.ToolTip="Zoom out" />
@@ -150,7 +275,7 @@
         </Grid>
 
         <!-- Palette -->
-        <StackPanel Grid.Column="2" Spacing="8">
+        <StackPanel Grid.Row="1" Grid.Column="2" Spacing="8" Style="{StaticResource ToolbarPanelStyle}">
             <TextBlock Text="Colour" Style="{StaticResource CaptionTextBlockStyle}" />
 
             <StackPanel Orientation="Horizontal" Spacing="4">
@@ -205,5 +330,68 @@
                          ColorChanged="OnColorChanged"
                          />
         </StackPanel>
+
+        <!-- Dialogs. Declared in the tree so they inherit the XamlRoot and pick up
+             the merged styles; they render nothing until ShowAsync is called. -->
+        <ContentDialog x:Name="NewIconDialog"
+                       Title="New icon"
+                       PrimaryButtonText="OK"
+                       CloseButtonText="Cancel"
+                       DefaultButton="Primary">
+            <StackPanel Spacing="16">
+                <StackPanel Orientation="Horizontal" Spacing="32">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Size" />
+                        <RadioButton x:Name="Size16" Content="16 x 16" GroupName="newsize" Tag="16" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size24" Content="24 x 24" GroupName="newsize" Tag="24" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size32" Content="32 x 32" GroupName="newsize" Tag="32" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size48" Content="48 x 48" GroupName="newsize" Tag="48" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size256" Content="256 x 256" GroupName="newsize" Tag="256" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size512" Content="512 x 512" GroupName="newsize" Tag="512" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size1024" Content="1024 x 1024" GroupName="newsize" Tag="1024" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="SizeOther" Content="Other" GroupName="newsize" />
+                        <local:SizeInput x:Name="NewDims" />
+                    </StackPanel>
+                    <StackPanel Spacing="6">
+                        <!-- Shown for parity; the engine is always 32-bit BGRA, so this is fixed. -->
+                        <TextBlock Text="Colours" />
+                        <RadioButton Content="Black &amp; white (1-bit)" GroupName="newdepth" IsEnabled="False" />
+                        <RadioButton Content="16 colours (4-bit)" GroupName="newdepth" IsEnabled="False" />
+                        <RadioButton Content="256 colours (8-bit)" GroupName="newdepth" IsEnabled="False" />
+                        <RadioButton Content="True Color (24-bit)" GroupName="newdepth" IsEnabled="False" />
+                        <RadioButton Content="True Color + Alpha (32-bit)" GroupName="newdepth" IsChecked="True" IsEnabled="False" />
+                    </StackPanel>
+                </StackPanel>
+                <CheckBox x:Name="NewDontAsk" Content="Don't ask again" />
+            </StackPanel>
+        </ContentDialog>
+
+        <ContentDialog x:Name="SaveDialog"
+                       Title="Save image"
+                       PrimaryButtonText="Save"
+                       CloseButtonText="Cancel"
+                       DefaultButton="Primary">
+            <StackPanel Spacing="8">
+                <ComboBox x:Name="SaveFormatCombo" Header="Format"
+                          HorizontalAlignment="Stretch" SelectedIndex="0">
+                    <ComboBoxItem Content="PNG image (*.png)" />
+                    <ComboBoxItem Content="BMP image (*.bmp)" />
+                    <ComboBoxItem Content="JPEG image (*.jpg)" />
+                    <ComboBoxItem Content="GIF image (*.gif)" />
+                    <ComboBoxItem Content="TIFF image (*.tiff)" />
+                    <ComboBoxItem Content="Windows icon (*.ico)" />
+                </ComboBox>
+            </StackPanel>
+        </ContentDialog>
+
+        <ContentDialog x:Name="ResizeImageDialog"
+               Title="Resize image"
+               PrimaryButtonText="Apply"
+               CloseButtonText="Cancel"
+               DefaultButton="Primary">
+            <StackPanel Spacing="8">
+                <local:SizeInput x:Name="ResizeDims" />
+            </StackPanel>
+        </ContentDialog>
     </Grid>
 </Window>

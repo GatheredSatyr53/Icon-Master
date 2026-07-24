@@ -15,6 +15,7 @@
 #include <shobjidl_core.h>
 #include <robuffer.h>
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -612,26 +613,158 @@ namespace winrt::IconMaster::implementation
         RebuildDisplay();
     }
 
-    void MainWindow::NewDocument()
+    int32_t MainWindow::FitZoom(int32_t maxDim)
     {
-        auto context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
-        context.Color(ColorPickerControl().Color());
-        m_docCounter += 1;
-        AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), 16);
-        StatusText().Text(L"New 32 x 32 icon.");
+        if (maxDim <= 0)
+        {
+            return k_minZoom;
+        }
+        return std::clamp(512 / maxDim, k_minZoom, k_maxZoom);
     }
 
-    void MainWindow::OnNew(IInspectable const&, RoutedEventArgs const&)
+    void MainWindow::NewDocument(int32_t w, int32_t h)
     {
-        NewDocument();
+        w = std::clamp(w, 1, 1024);
+        h = std::clamp(h, 1, 1024);
+        auto context = winrt::IconMaster::DrawingContext(w, h);
+        context.Color(ColorPickerControl().Color());
+        m_docCounter += 1;
+        AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), FitZoom(std::max(w, h)));
+        StatusText().Text(L"New " + winrt::to_hstring(w) + L" x " + winrt::to_hstring(h) + L" icon.");
+    }
+
+    void MainWindow::OnNewSizePreset(IInspectable const& sender, RoutedEventArgs const&)
+    {
+        const auto tag = winrt::unbox_value_or<winrt::hstring>(sender.as<FrameworkElement>().Tag(), L"");
+        const int32_t val = static_cast<int32_t>(std::wcstol(tag.c_str(), nullptr, 10));
+        if (val <= 0) { return; }
+        NewDims().SetSize(val, val);
+    }
+
+    winrt::fire_and_forget MainWindow::OnNew(IInspectable const&, RoutedEventArgs const&)
+    {
+        auto lifetime = get_strong();
+
+        int32_t w = m_newW;
+        int32_t h = m_newH;
+
+        if (m_askOnNew)
+        {
+            // Seed the shared size control and select the matching preset (or Other).
+            NewDims().SetSize(m_newW, m_newH);
+            NewDontAsk().IsChecked(false);
+
+            winrt::Microsoft::UI::Xaml::Controls::RadioButton preset{ nullptr };
+            if (m_newW == m_newH)
+            {
+                switch (m_newW)
+                {
+                case 16:   preset = Size16();   break;
+                case 24:   preset = Size24();   break;
+                case 32:   preset = Size32();   break;
+                case 48:   preset = Size48();   break;
+                case 256:  preset = Size256();  break;
+                case 512:  preset = Size512();  break;
+                case 1024: preset = Size1024(); break;
+                default:   break;
+                }
+            }
+            if (preset != nullptr) { preset.IsChecked(true); }
+            else                   { SizeOther().IsChecked(true); }
+
+            if (NewIconDialog().XamlRoot() == nullptr)
+            {
+                NewIconDialog().XamlRoot(this->Content().XamlRoot());
+            }
+            if (co_await NewIconDialog().ShowAsync() != ContentDialogResult::Primary)
+            {
+                co_return;
+            }
+
+            w = NewDims().SelectedWidth();
+            h = NewDims().SelectedHeight();
+            m_newW = w;
+            m_newH = h;
+
+            auto ask = NewDontAsk().IsChecked();
+            if (ask && ask.Value())
+            {
+                m_askOnNew = false;
+            }
+        }
+
+        NewDocument(w, h);
+    }
+
+    void MainWindow::ResizeCanvas(int32_t newW, int32_t newH)
+    {
+        if (doc().context == nullptr || newW <= 0 || newH <= 0)
+        {
+            return;
+        }
+        const int32_t oldW = doc().context.PixelWidth();
+        const int32_t oldH = doc().context.PixelHeight();
+        if (newW == oldW && newH == oldH)
+        {
+            return;
+        }
+
+        // Snapshot the old canvas so the resize is undoable (dimensions included).
+        PushUndo();
+
+        auto resized = winrt::IconMaster::DrawingContext(newW, newH);
+        resized.Color(doc().context.Color());
+
+        // Copy the overlapping region, anchored at the top-left corner.
+        const int32_t copyW = std::min(oldW, newW);
+        const int32_t copyH = std::min(oldH, newH);
+        for (int32_t y = 0; y < copyH; ++y)
+        {
+            for (int32_t x = 0; x < copyW; ++x)
+            {
+                resized.SetPixel(x, y, doc().context.GetPixel(x, y));
+            }
+        }
+
+        doc().context = resized;
+        doc().hasSelection = false;
+        ResetTransient();
+        doc().zoom = FitZoom(std::max(newW, newH));
+        RebuildDisplay();
     }
 
     winrt::fire_and_forget MainWindow::OnSave(IInspectable const&, RoutedEventArgs const&)
     {
+        namespace WGI = winrt::Windows::Graphics::Imaging;
+
         auto lifetime = get_strong();
         if (doc().context == nullptr)
         {
             co_return;
+        }
+
+        // Ask the user which image format to save. There are more raster formats
+        // than PNG (BMP, JPEG, GIF, TIFF), plus the multi-size Windows ICO.
+        if (SaveDialog().XamlRoot() == nullptr)
+        {
+            SaveDialog().XamlRoot(this->Content().XamlRoot());
+        }
+        if (co_await SaveDialog().ShowAsync() != ContentDialogResult::Primary)
+        {
+            co_return;
+        }
+
+        winrt::hstring typeName, ext;
+        winrt::guid encoderId{};
+        bool isIco = false;
+        switch (SaveFormatCombo().SelectedIndex())
+        {
+        case 1:  typeName = L"BMP image";    ext = L".bmp";  encoderId = WGI::BitmapEncoder::BmpEncoderId();  break;
+        case 2:  typeName = L"JPEG image";   ext = L".jpg";  encoderId = WGI::BitmapEncoder::JpegEncoderId(); break;
+        case 3:  typeName = L"GIF image";    ext = L".gif";  encoderId = WGI::BitmapEncoder::GifEncoderId();  break;
+        case 4:  typeName = L"TIFF image";   ext = L".tiff"; encoderId = WGI::BitmapEncoder::TiffEncoderId(); break;
+        case 5:  typeName = L"Windows icon"; ext = L".ico";  isIco = true;                                    break;
+        default: typeName = L"PNG image";    ext = L".png";  encoderId = WGI::BitmapEncoder::PngEncoderId();  break;
         }
 
         winrt::Windows::Storage::Pickers::FileSavePicker picker;
@@ -644,7 +777,7 @@ namespace winrt::IconMaster::implementation
         }
         picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
         picker.SuggestedFileName(L"icon");
-        picker.FileTypeChoices().Insert(L"PNG image", winrt::single_threaded_vector<winrt::hstring>({ L".png" }));
+        picker.FileTypeChoices().Insert(typeName, winrt::single_threaded_vector<winrt::hstring>({ ext }));
 
         auto file = co_await picker.PickSaveFileAsync();
         if (file == nullptr)
@@ -652,33 +785,70 @@ namespace winrt::IconMaster::implementation
             co_return;
         }
 
-        const int32_t w = doc().context.PixelWidth();
-        const int32_t h = doc().context.PixelHeight();
-        std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
-        for (int32_t y = 0; y < h; ++y)
+        if (isIco)
         {
-            for (int32_t x = 0; x < w; ++x)
+            co_await WriteIcoAsync(file);
+        }
+        else
+        {
+            const int32_t w = doc().context.PixelWidth();
+            const int32_t h = doc().context.PixelHeight();
+            std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
+            for (int32_t y = 0; y < h; ++y)
             {
-                const auto c = doc().context.GetPixel(x, y);
-                const size_t i = (static_cast<size_t>(y) * w + x) * 4;
-                bytes[i + 0] = c.B;
-                bytes[i + 1] = c.G;
-                bytes[i + 2] = c.R;
-                bytes[i + 3] = c.A;
+                for (int32_t x = 0; x < w; ++x)
+                {
+                    const auto c = doc().context.GetPixel(x, y);
+                    const size_t i = (static_cast<size_t>(y) * w + x) * 4;
+                    bytes[i + 0] = c.B;
+                    bytes[i + 1] = c.G;
+                    bytes[i + 2] = c.R;
+                    bytes[i + 3] = c.A;
+                }
             }
+
+            auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::ReadWrite);
+            stream.Size(0); // truncate any previous content when overwriting
+            auto encoder = co_await WGI::BitmapEncoder::CreateAsync(encoderId, stream);
+            encoder.SetPixelData(
+                WGI::BitmapPixelFormat::Bgra8,
+                WGI::BitmapAlphaMode::Straight,
+                static_cast<uint32_t>(w), static_cast<uint32_t>(h),
+                96.0, 96.0, bytes);
+            co_await encoder.FlushAsync();
         }
 
-        auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::ReadWrite);
-        auto encoder = co_await winrt::Windows::Graphics::Imaging::BitmapEncoder::CreateAsync(
-            winrt::Windows::Graphics::Imaging::BitmapEncoder::PngEncoderId(), stream);
-        encoder.SetPixelData(
-            winrt::Windows::Graphics::Imaging::BitmapPixelFormat::Bgra8,
-            winrt::Windows::Graphics::Imaging::BitmapAlphaMode::Straight,
-            static_cast<uint32_t>(w), static_cast<uint32_t>(h),
-            96.0, 96.0, bytes);
-        co_await encoder.FlushAsync();
-
         StatusText().Text(L"Saved " + file.Name());
+    }
+
+    winrt::fire_and_forget MainWindow::OnResizeImage(winrt::Windows::Foundation::IInspectable const&, winrt::Microsoft::UI::Xaml::RoutedEventArgs const&)
+    {
+        auto lifetime = get_strong();
+        if (doc().context == nullptr)
+        {
+            co_return;
+        }
+
+        ResizeDims().SetSize(doc().context.PixelWidth(), doc().context.PixelHeight());
+
+        if (ResizeImageDialog().XamlRoot() == nullptr)
+        {
+            ResizeImageDialog().XamlRoot(this->Content().XamlRoot());
+        }
+
+        if (co_await ResizeImageDialog().ShowAsync() != ContentDialogResult::Primary)
+        {
+            co_return;
+        }
+
+        const int32_t newW = ResizeDims().SelectedWidth();
+        const int32_t newH = ResizeDims().SelectedHeight();
+        ResizeCanvas(newW, newH);
+        auto statusBar = StatusText();
+        if (statusBar != nullptr)
+        {
+            statusBar.Text(L"Resized to " + winrt::to_hstring(newW) + L" x " + winrt::to_hstring(newH) + L".");
+        }
     }
 
     winrt::fire_and_forget MainWindow::OnOpen(IInspectable const&, RoutedEventArgs const&)
@@ -760,31 +930,9 @@ namespace winrt::IconMaster::implementation
         return out;
     }
 
-    winrt::fire_and_forget MainWindow::OnExportIco(IInspectable const&, RoutedEventArgs const&)
+    winrt::Windows::Foundation::IAsyncAction MainWindow::WriteIcoAsync(winrt::Windows::Storage::StorageFile file)
     {
         auto lifetime = get_strong();
-        if (doc().context == nullptr)
-        {
-            co_return;
-        }
-
-        winrt::Windows::Storage::Pickers::FileSavePicker picker;
-        {
-            auto windowNative = this->try_as<::IWindowNative>();
-            HWND hwnd{};
-            winrt::check_hresult(windowNative->get_WindowHandle(&hwnd));
-            auto initWithWindow = picker.as<::IInitializeWithWindow>();
-            winrt::check_hresult(initWithWindow->Initialize(hwnd));
-        }
-        picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
-        picker.SuggestedFileName(L"icon");
-        picker.FileTypeChoices().Insert(L"Windows icon", winrt::single_threaded_vector<winrt::hstring>({ L".ico" }));
-
-        auto file = co_await picker.PickSaveFileAsync();
-        if (file == nullptr)
-        {
-            co_return;
-        }
 
         // Render each icon size to a PNG blob (ICO may embed PNG-compressed images).
         const int32_t sizes[] = { 16, 32, 48, 256 };
@@ -854,7 +1002,6 @@ namespace winrt::IconMaster::implementation
         }
 
         co_await winrt::Windows::Storage::FileIO::WriteBytesAsync(file, ico);
-        StatusText().Text(L"Exported " + file.Name() + L" (16, 32, 48, 256)");
     }
 
     // ---- History ------------------------------------------------------------
@@ -884,6 +1031,7 @@ namespace winrt::IconMaster::implementation
             auto context = winrt::IconMaster::DrawingContext(snap.w, snap.h);
             context.Color(doc().context.Color());
             doc().context = context;
+            doc().zoom = FitZoom(std::max(snap.w, snap.h));
         }
         for (int32_t y = 0; y < snap.h; ++y)
         {
@@ -968,7 +1116,8 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OnAddTab(winrt::Microsoft::UI::Xaml::Controls::TabView const&, IInspectable const&)
     {
-        NewDocument();
+        // The tab "+" button is a quick add: reuse the last chosen size without a prompt.
+        NewDocument(m_newW, m_newH);
     }
 
     void MainWindow::OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const&, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args)

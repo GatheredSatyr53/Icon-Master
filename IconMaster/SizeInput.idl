@@ -1,0 +1,16 @@
+namespace IconMaster
+{
+    // Reusable "Square + Width + Height" input group with width/height mirroring,
+    // shared by the New icon and Resize image dialogs.
+    [default_interface]
+    runtimeclass SizeInput : Microsoft.UI.Xaml.Controls.UserControl
+    {
+        SizeInput();
+
+        // Seeds both boxes and ticks "Square" when width == height.
+        void SetSize(Int32 width, Int32 height);
+
+        Int32 SelectedWidth{ get; };
+        Int32 SelectedHeight{ get; };
+    }
+}
