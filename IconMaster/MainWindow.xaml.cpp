@@ -733,7 +733,7 @@ namespace winrt::IconMaster::implementation
         RebuildDisplay();
     }
 
-    winrt::fire_and_forget MainWindow::OnSave(IInspectable const&, RoutedEventArgs const&)
+    winrt::fire_and_forget MainWindow::OnSaveAs(IInspectable const&, RoutedEventArgs const&)
     {
         namespace WGI = winrt::Windows::Graphics::Imaging;
 
@@ -754,7 +754,8 @@ namespace winrt::IconMaster::implementation
             co_return;
         }
 
-        winrt::hstring typeName, ext;
+        winrt::hstring typeName;
+        winrt::hstring ext;
         winrt::guid encoderId{};
         bool isIco = false;
         switch (SaveFormatCombo().SelectedIndex())
@@ -767,19 +768,7 @@ namespace winrt::IconMaster::implementation
         default: typeName = L"PNG image";    ext = L".png";  encoderId = WGI::BitmapEncoder::PngEncoderId();  break;
         }
 
-        winrt::Windows::Storage::Pickers::FileSavePicker picker;
-        {
-            auto windowNative = this->try_as<::IWindowNative>();
-            HWND hwnd{};
-            winrt::check_hresult(windowNative->get_WindowHandle(&hwnd));
-            auto initWithWindow = picker.as<::IInitializeWithWindow>();
-            winrt::check_hresult(initWithWindow->Initialize(hwnd));
-        }
-        picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
-        picker.SuggestedFileName(L"icon");
-        picker.FileTypeChoices().Insert(typeName, winrt::single_threaded_vector<winrt::hstring>({ ext }));
-
-        auto file = co_await picker.PickSaveFileAsync();
+        auto file = co_await PickSaveFileAsync(typeName, ext);
         if (file == nullptr)
         {
             co_return;
@@ -791,34 +780,42 @@ namespace winrt::IconMaster::implementation
         }
         else
         {
-            const int32_t w = doc().context.PixelWidth();
-            const int32_t h = doc().context.PixelHeight();
-            std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
-            for (int32_t y = 0; y < h; ++y)
-            {
-                for (int32_t x = 0; x < w; ++x)
-                {
-                    const auto c = doc().context.GetPixel(x, y);
-                    const size_t i = (static_cast<size_t>(y) * w + x) * 4;
-                    bytes[i + 0] = c.B;
-                    bytes[i + 1] = c.G;
-                    bytes[i + 2] = c.R;
-                    bytes[i + 3] = c.A;
-                }
-            }
-
-            auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::ReadWrite);
-            stream.Size(0); // truncate any previous content when overwriting
-            auto encoder = co_await WGI::BitmapEncoder::CreateAsync(encoderId, stream);
-            encoder.SetPixelData(
-                WGI::BitmapPixelFormat::Bgra8,
-                WGI::BitmapAlphaMode::Straight,
-                static_cast<uint32_t>(w), static_cast<uint32_t>(h),
-                96.0, 96.0, bytes);
-            co_await encoder.FlushAsync();
+            co_await WriteSingleLayerImageAsync(file, encoderId);
         }
 
-        StatusText().Text(L"Saved " + file.Name());
+        winrt::hstring filePath = file.Path();
+        doc().associatedFile.path = filePath;
+        doc().associatedFile.typeName = filePath;
+        doc().associatedFile.extension = ext;
+        doc().associatedFile.encoder = encoderId;
+        doc().associatedFile.isIco = isIco;
+        Tabs().TabItems().GetAt(m_active).as<TabViewItem>().Header(winrt::box_value(file.Name()));
+        StatusText().Text(L"Saved " + filePath);
+    }
+
+    winrt::fire_and_forget MainWindow::OnSaveCopy(IInspectable const& sender, RoutedEventArgs const& args)
+    {
+        AssociatedFile assoc = doc().associatedFile;
+        if (assoc.path.empty()) {
+            OnSaveAs(sender, args);
+        }
+        else {
+            auto file = co_await PickSaveFileAsync(assoc.typeName, assoc.extension);
+            if (file == nullptr)
+            {
+                co_return;
+            }
+
+            if (assoc.isIco)
+            {
+                co_await WriteIcoAsync(file);
+            }
+            else
+            {
+                co_await WriteSingleLayerImageAsync(file, assoc.encoder);
+            }
+            StatusText().Text(L"Saved copy " + file.Path());
+        }
     }
 
     winrt::fire_and_forget MainWindow::OnResizeImage(winrt::Windows::Foundation::IInspectable const&, winrt::Microsoft::UI::Xaml::RoutedEventArgs const&)
@@ -908,6 +905,26 @@ namespace winrt::IconMaster::implementation
         StatusText().Text(L"Opened " + file.Name());
     }
 
+    winrt::fire_and_forget MainWindow::OnSave(IInspectable const& sender, RoutedEventArgs const& args)
+    {
+        winrt::hstring filePath = doc().associatedFile.path;
+        if (filePath.empty()) {
+            OnSaveAs(sender, args);
+        }
+        else {
+            auto file = co_await winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(filePath);
+            if (doc().associatedFile.isIco)
+            {
+                co_await WriteIcoAsync(file);
+            }
+            else
+            {
+                co_await WriteSingleLayerImageAsync(file, doc().associatedFile.encoder);
+            }
+            StatusText().Text(L"Saved " + filePath);
+        }
+    }
+
     std::vector<uint8_t> MainWindow::ScaleCanvas(int32_t target)
     {
         const int32_t w = doc().context.PixelWidth();
@@ -928,6 +945,54 @@ namespace winrt::IconMaster::implementation
             }
         }
         return out;
+    }
+
+    winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> winrt::IconMaster::implementation::MainWindow::PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension)
+    {
+        winrt::Windows::Storage::Pickers::FileSavePicker picker;
+        {
+            auto windowNative = this->try_as<::IWindowNative>();
+            HWND hwnd{};
+            winrt::check_hresult(windowNative->get_WindowHandle(&hwnd));
+            auto initWithWindow = picker.as<::IInitializeWithWindow>();
+            winrt::check_hresult(initWithWindow->Initialize(hwnd));
+        }
+        picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
+        picker.SuggestedFileName(L"icon");
+        picker.FileTypeChoices().Insert(typeName, winrt::single_threaded_vector<winrt::hstring>({ extension }));
+
+        return picker.PickSaveFileAsync();
+    }
+
+    winrt::Windows::Foundation::IAsyncAction winrt::IconMaster::implementation::MainWindow::WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
+    {
+        namespace WGI = winrt::Windows::Graphics::Imaging;
+
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
+        for (int32_t y = 0; y < h; ++y)
+        {
+            for (int32_t x = 0; x < w; ++x)
+            {
+                const auto c = doc().context.GetPixel(x, y);
+                const size_t i = (static_cast<size_t>(y) * w + x) * 4;
+                bytes[i + 0] = c.B;
+                bytes[i + 1] = c.G;
+                bytes[i + 2] = c.R;
+                bytes[i + 3] = c.A;
+            }
+        }
+
+        auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::ReadWrite);
+        stream.Size(0); // truncate any previous content when overwriting
+        auto encoder = co_await WGI::BitmapEncoder::CreateAsync(encoderId, stream);
+        encoder.SetPixelData(
+            WGI::BitmapPixelFormat::Bgra8,
+            WGI::BitmapAlphaMode::Straight,
+            static_cast<uint32_t>(w), static_cast<uint32_t>(h),
+            96.0, 96.0, bytes);
+        co_await encoder.FlushAsync();
     }
 
     winrt::Windows::Foundation::IAsyncAction MainWindow::WriteIcoAsync(winrt::Windows::Storage::StorageFile file)

@@ -4,18 +4,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:IconMaster">
 
-    <Style x:Key="WorkspaceStyle" TargetType="Grid">
-        <Setter Property="Background" Value="{ThemeResource AcrylicInAppFillColorDefaultBrush}"/>
+    <Style x:Key="WorkspacePanelStyle" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource LayerFillColorDefaultBrush}"/>
         <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}"/>
-        <Setter Property="BorderBrush" Value="{ThemeResource ControlElevationBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="16" />
-    </Style>
-
-    <Style x:Key="ToolbarPanelStyle" TargetType="StackPanel">
-        <Setter Property="Background" Value="{ThemeResource AcrylicInAppFillColorDefaultBrush}"/>
-        <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}"/>
-        <Setter Property="BorderBrush" Value="{ThemeResource ControlElevationBorderBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="16" />
     </Style>
@@ -23,11 +15,6 @@
     <Style x:Key="ToolbarScrollPanelStyle" TargetType="ScrollViewer">
         <Setter Property="HorizontalScrollMode" Value="Disabled"/>
         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
-        <Setter Property="Background" Value="{ThemeResource AcrylicInAppFillColorDefaultBrush}"/>
-        <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}"/>
-        <Setter Property="BorderBrush" Value="{ThemeResource ControlElevationBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="16" />
     </Style>
     
     <Style x:Key="ToolButtonStyle" TargetType="RadioButton">

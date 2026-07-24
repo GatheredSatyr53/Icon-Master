@@ -33,6 +33,8 @@ namespace winrt::IconMaster::implementation
         void OnNewSizePreset(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnOpen(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnSave(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        winrt::fire_and_forget OnSaveAs(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        winrt::fire_and_forget OnSaveCopy(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnResizeImage(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
         void OnUndo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -49,6 +51,8 @@ namespace winrt::IconMaster::implementation
         void ResizeCanvas(int32_t newW, int32_t newH); // resize the active canvas, top-left anchored
         void ResetTransient();
         std::vector<uint8_t> ScaleCanvas(int32_t target); // nearest-neighbour, BGRA8
+        winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension); // multi-size ICO
+        winrt::Windows::Foundation::IAsyncAction WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId); // default bitmap image
         winrt::Windows::Foundation::IAsyncAction WriteIcoAsync(winrt::Windows::Storage::StorageFile file); // multi-size ICO
 
         // Undo/redo via full-canvas snapshots.
@@ -56,6 +60,14 @@ namespace winrt::IconMaster::implementation
 
         // Per-document state (one per open tab). The current tool, colour, clipboard,
         // and the in-progress drag are shared/transient and live in MainWindow.
+        struct AssociatedFile {
+            winrt::hstring path;
+            winrt::hstring typeName;
+            winrt::hstring extension;
+            winrt::guid encoder{};
+            bool isIco{ false };
+        };
+
         struct Document
         {
             winrt::IconMaster::DrawingContext context{ nullptr };
@@ -68,6 +80,7 @@ namespace winrt::IconMaster::implementation
             std::vector<Snapshot> undo;
             std::vector<Snapshot> redo;
             winrt::hstring title;
+            AssociatedFile associatedFile;
         };
         Document& doc() { return m_docs[m_active]; }
         Document const& doc() const { return m_docs[m_active]; }
