@@ -33,12 +33,29 @@ automatically from NuGet on first build.
 3. Pick a configuration/platform, e.g. `Debug | x64`.
 4. Set **IconMaster** as the startup project and press **F5**.
 
-The app is packaged (MSIX) and deploys to the local machine on run. To build
-from the command line:
+To build from the command line:
 
 ```
 msbuild IconMaster.sln /restore /p:Configuration=Debug /p:Platform=x64
 ```
+
+## Running
+
+This project builds a **packaged (MSIX) application** (`WindowsPackageType=MSIX`
+in `IconMaster.vcxproj`, with `Package.appxmanifest`). It is not a plain
+standalone `.exe`: it is deployed as a package and launched with a package
+identity, which the Windows App SDK relies on to load its resources.
+
+- **F5** (Start Debugging) or **Ctrl+F5** (Start Without Debugging) in Visual
+  Studio first deploys the package and then launches it, so both work.
+- **Build → Deploy Solution** (or right-click the **IconMaster** project →
+  **Deploy**) installs the package locally; the app then appears in the Start
+  menu and runs like any installed app, without Visual Studio.
+
+Do **not** double-click `IconMaster.exe` in `x64\<Config>\IconMaster\`
+directly. Launched that way it has no package identity, resource loading
+throws during start-up, and the process aborts. This is by design for a
+packaged app, not a bug — always start it via Deploy / the Start menu (or F5).
 
 ## Project layout
 
