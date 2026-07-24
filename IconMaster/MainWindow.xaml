@@ -39,21 +39,34 @@
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="N"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8A5;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutItem Text="Open..." Click="OnOpen">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="O"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xED25;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutItem Text="Save..." Click="OnSave">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="S"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74E;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
                 <MenuFlyoutItem Text="Exit">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="E"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8BB;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
             </MenuBarItem>
 
@@ -62,26 +75,42 @@
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="Z"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7A7;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutItem Text="Redo" Click="OnRedo">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="Y"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7A6;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
                 <MenuFlyoutItem Text="Copy" Click="OnCopy">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="C"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8C8;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutItem Text="Cut" Click="OnCut">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="X"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8C6;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutItem Text="Paste" Click="OnPaste">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="V"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE77F;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
             </MenuBarItem>
 
@@ -90,23 +119,48 @@
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="A"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8B3;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutItem Text="Deselect" Click="OnDeselect">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Key="Escape"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8E6;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
                 <MenuFlyoutItem Text="Delete" Click="OnDelete">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Key="Delete"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74D;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
             </MenuBarItem>
+
+            <MenuBarItem Title="Image">
+                <MenuFlyoutItem Text="Resize Image..." Click="OnResizeImage">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="R"/>
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE740;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuBarItem>
+
             <MenuBarItem Title="Help">
                 <MenuFlyoutItem Text="About">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="I"/>
                     </MenuFlyoutItem.KeyboardAccelerators>
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE946;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
             </MenuBarItem>
 
@@ -131,22 +185,7 @@
                         <Setter Property="MinWidth" Value="0" />
                     </Style>
                 </StackPanel.Resources>
-                <TextBlock Text="Canvas" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <ComboBox x:Name="SizeCombo" Height="38"
-                          VerticalAlignment="Center"
-                          ToolTipService.ToolTip="Canvas size for New / Resize"
-                          SelectionChanged="OnResizeCanvas">
-                        <ComboBoxItem Content="16" />
-                        <ComboBoxItem Content="32" IsSelected="True" />
-                        <ComboBoxItem Content="48" />
-                        <ComboBoxItem Content="64" />
-                        <ComboBoxItem Content="128" />
-                        <ComboBoxItem Content="256" />
-                    </ComboBox>
-                </StackPanel>
-
-                <TextBlock Text="Tools" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,10,0,0" />
+                
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <RadioButton Tag="pen" GroupName="tools" IsChecked="True"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Pen">
@@ -346,6 +385,20 @@
                     <ComboBoxItem Content="TIFF image (*.tiff)" />
                     <ComboBoxItem Content="Windows icon (*.ico)" />
                 </ComboBox>
+            </StackPanel>
+        </ContentDialog>
+
+        <ContentDialog x:Name="ResizeImageDialog"
+               Title="Resize image"
+               PrimaryButtonText="Apply"
+               CloseButtonText="Cancel"
+               DefaultButton="Primary">
+            <StackPanel Spacing="8">
+                <CheckBox x:Name="SquareResize" Content="Square" Checked="OnSquareResizeChecked" />
+                <NumberBox x:Name="ResizedWidth" Header="Width" Minimum="1" Maximum="1024"
+           SpinButtonPlacementMode="Inline" ValueChanged="OnResizedWidthChanged" />
+                <NumberBox x:Name="ResizedHeight" Header="Height" Minimum="1" Maximum="1024"
+           SpinButtonPlacementMode="Inline" ValueChanged="OnResizedHeightChanged" />
             </StackPanel>
         </ContentDialog>
     </Grid>

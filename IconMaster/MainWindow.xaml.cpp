@@ -613,23 +613,6 @@ namespace winrt::IconMaster::implementation
         RebuildDisplay();
     }
 
-    int32_t MainWindow::SelectedSize()
-    {
-        if (auto combo = SizeCombo())
-        {
-            if (auto item = combo.SelectedItem().try_as<winrt::Microsoft::UI::Xaml::Controls::ComboBoxItem>())
-            {
-                const auto text = winrt::unbox_value_or<winrt::hstring>(item.Content(), L"");
-                const int32_t value = static_cast<int32_t>(std::wcstol(text.c_str(), nullptr, 10));
-                if (value > 0)
-                {
-                    return std::clamp(value, 1, 256);
-                }
-            }
-        }
-        return k_canvasSize;
-    }
-
     int32_t MainWindow::FitZoom(int32_t maxDim)
     {
         if (maxDim <= 0)
@@ -653,6 +636,12 @@ namespace winrt::IconMaster::implementation
     bool MainWindow::IsNewSquare()
     {
         auto ic = NewSquare().IsChecked();
+        return ic && ic.Value();
+    }
+
+    bool MainWindow::IsSquareResize()
+    {
+        auto ic = SquareResize().IsChecked();
         return ic && ic.Value();
     }
 
@@ -798,17 +787,6 @@ namespace winrt::IconMaster::implementation
         RebuildDisplay();
     }
 
-    void MainWindow::OnResizeCanvas(IInspectable const&, SelectionChangedEventArgs const&)
-    {
-        const int32_t size = SelectedSize();
-        ResizeCanvas(size, size);
-        auto statusBar = StatusText();
-        if (statusBar != nullptr)
-        {
-            statusBar.Text(L"Resized to " + winrt::to_hstring(size) + L" x " + winrt::to_hstring(size) + L".");
-        }
-    }
-
     winrt::fire_and_forget MainWindow::OnSave(IInspectable const&, RoutedEventArgs const&)
     {
         namespace WGI = winrt::Windows::Graphics::Imaging;
@@ -895,6 +873,74 @@ namespace winrt::IconMaster::implementation
         }
 
         StatusText().Text(L"Saved " + file.Name());
+    }
+
+    winrt::fire_and_forget MainWindow::OnResizeImage(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args)
+    {
+        namespace WGI = winrt::Windows::Graphics::Imaging;
+
+        auto lifetime = get_strong();
+        if (doc().context == nullptr)
+        {
+            co_return;
+        }
+
+        m_resizeDialogGuard = true;
+        auto width = doc().context.PixelWidth();
+        auto height = doc().context.PixelHeight();
+        ResizedWidth().Value(width);
+        ResizedHeight().Value(height);
+        SquareResize().IsChecked(width == height);
+        m_resizeDialogGuard = false;
+
+        if (ResizeImageDialog().XamlRoot() == nullptr)
+        {
+            ResizeImageDialog().XamlRoot(this->Content().XamlRoot());
+        }
+
+        if (co_await ResizeImageDialog().ShowAsync() != ContentDialogResult::Primary)
+        {
+            co_return;
+        }
+
+        const int32_t newW = (int32_t) ResizedWidth().Value();
+        const int32_t newH = (int32_t) ResizedHeight().Value();
+        ResizeCanvas(newW, newH);
+        auto statusBar = StatusText();
+        if (statusBar != nullptr)
+        {
+            statusBar.Text(L"Resized to " + winrt::to_hstring(newW) + L" x " + winrt::to_hstring(newH) + L".");
+        }
+    }
+
+    void MainWindow::OnSquareResizeChecked(IInspectable const& sender, RoutedEventArgs const& args)
+    {
+        if (m_resizeDialogGuard) { return; }
+        const double v = ResizedWidth().Value();
+        if (std::isnan(v)) { return; }
+        m_resizeDialogGuard = true;
+        ResizedHeight().Value(v);
+        m_resizeDialogGuard = false;
+    }
+
+    void MainWindow::OnResizedWidthChanged(NumberBox const& sender, NumberBoxValueChangedEventArgs const& args)
+    {
+        if (m_resizeDialogGuard || !IsSquareResize()) { return; }
+        const double v = args.NewValue();
+        if (std::isnan(v)) { return; }
+        m_resizeDialogGuard = true;
+        ResizedHeight().Value(v);
+        m_resizeDialogGuard = false;
+    }
+
+    void MainWindow::OnResizedHeightChanged(NumberBox const& sender, NumberBoxValueChangedEventArgs const& args)
+    {
+        if (m_resizeDialogGuard || !IsSquareResize()) { return; }
+        const double v = args.NewValue();
+        if (std::isnan(v)) { return; }
+        m_resizeDialogGuard = true;
+        ResizedWidth().Value(v);
+        m_resizeDialogGuard = false;
     }
 
     winrt::fire_and_forget MainWindow::OnOpen(IInspectable const&, RoutedEventArgs const&)
