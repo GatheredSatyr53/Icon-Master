@@ -391,6 +391,11 @@ namespace winrt::IconMaster::implementation
             m_fill.FillBounded(doc().context, lx, ly,
                                doc().selX, doc().selY, doc().selX + doc().selW - 1, doc().selY + doc().selH - 1);
         }
+        else if (kind == ToolKind::Pen || kind == ToolKind::Eraser)
+        {
+            // The stamp tools honour the brush size; flood-fill and eyedropper do not.
+            StampBrush(tool, lx, ly);
+        }
         else
         {
             tool.Draw(doc().context, lx, ly);
@@ -408,6 +413,41 @@ namespace winrt::IconMaster::implementation
         }
 
         StatusText().Text(L"x: " + winrt::to_hstring(lx) + L"  y: " + winrt::to_hstring(ly));
+    }
+
+    void MainWindow::StampBrush(winrt::IconMaster::ITool const& tool, int32_t cx, int32_t cy)
+    {
+        const int32_t s = std::clamp(m_brushSize, 1, 64);
+        const int32_t start = -(s / 2); // centre the square footprint on the cursor
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        for (int32_t j = 0; j < s; ++j)
+        {
+            for (int32_t i = 0; i < s; ++i)
+            {
+                const int32_t px = cx + start + i;
+                const int32_t py = cy + start + j;
+                if (px < 0 || px >= w || py < 0 || py >= h)
+                {
+                    continue;
+                }
+                tool.Draw(doc().context, px, py);
+            }
+        }
+    }
+
+    void MainWindow::OnBrushSizeChanged(IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&)
+    {
+        auto combo = sender.try_as<ComboBox>();
+        if (combo == nullptr)
+        {
+            return;
+        }
+        if (auto item = combo.SelectedItem().try_as<ComboBoxItem>())
+        {
+            const auto tag = winrt::unbox_value_or<winrt::hstring>(item.Tag(), L"1");
+            m_brushSize = std::clamp(static_cast<int32_t>(std::wcstol(tag.c_str(), nullptr, 10)), 1, 64);
+        }
     }
 
     void MainWindow::CommitShape(int32_t x1, int32_t y1)

@@ -14,6 +14,7 @@ namespace winrt::IconMaster::implementation
         MainWindow();
 
         void OnToolSelected(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnBrushSizeChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& args);
         void OnSwatchClick(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnColorChanged(winrt::Microsoft::UI::Xaml::Controls::ColorPicker const& sender, winrt::Microsoft::UI::Xaml::Controls::ColorChangedEventArgs const& args);
         void OnZoomIn(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -109,6 +110,7 @@ namespace winrt::IconMaster::implementation
         winrt::IconMaster::IShapeTool ShapeToolForKind(ToolKind kind);
         void PointerToPixelClamped(winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args, int32_t& lx, int32_t& ly);
         void DrawFromPointer(winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
+        void StampBrush(winrt::IconMaster::ITool const& tool, int32_t cx, int32_t cy); // stamps an m_brushSize x m_brushSize block
         void CommitShape(int32_t x1, int32_t y1);
 
         // Selection / clipboard.
@@ -124,6 +126,7 @@ namespace winrt::IconMaster::implementation
         static constexpr int32_t k_checkerCell = 8; // transparency checker cell, in display pixels
 
         ToolKind m_toolKind{ ToolKind::Pen };
+        int32_t m_brushSize{ 1 };       // Pen/Eraser footprint, in pixels (square)
         bool m_suppressColorSync{ false };
 
         // In-progress shape drag (line/rectangle/ellipse).
