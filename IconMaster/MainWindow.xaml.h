@@ -30,6 +30,10 @@ namespace winrt::IconMaster::implementation
         void OnDelete(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
         winrt::fire_and_forget OnNew(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnNewSizePreset(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnNewSquareChecked(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnNewWidthChanged(winrt::Microsoft::UI::Xaml::Controls::NumberBox const& sender, winrt::Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const& args);
+        void OnNewHeightChanged(winrt::Microsoft::UI::Xaml::Controls::NumberBox const& sender, winrt::Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const& args);
         void OnResizeCanvas(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& args);
         winrt::fire_and_forget OnOpen(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnSave(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -154,6 +158,8 @@ namespace winrt::IconMaster::implementation
         int32_t m_newW{ k_canvasSize };
         int32_t m_newH{ k_canvasSize };
         bool m_askOnNew{ true };        // false => "Don't ask again": reuse the remembered size
+        bool m_newDialogGuard{ false }; // suppress reentrant width/height/square syncing
+        bool IsNewSquare();             // whether the New-dialog "Square" box is ticked
 
         winrt::IconMaster::Pen m_pen{ nullptr };
         winrt::IconMaster::Eraser m_eraser{ nullptr };

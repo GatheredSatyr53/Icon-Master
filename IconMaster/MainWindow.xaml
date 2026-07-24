@@ -291,5 +291,62 @@
                          ColorChanged="OnColorChanged"
                          />
         </StackPanel>
+
+        <!-- Dialogs. Declared in the tree so they inherit the XamlRoot and pick up
+             the merged styles; they render nothing until ShowAsync is called. -->
+        <ContentDialog x:Name="NewIconDialog"
+                       Title="New icon"
+                       PrimaryButtonText="OK"
+                       CloseButtonText="Cancel"
+                       DefaultButton="Primary">
+            <StackPanel Spacing="16">
+                <StackPanel Orientation="Horizontal" Spacing="32">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Size" />
+                        <RadioButton x:Name="Size16" Content="16 x 16" GroupName="newsize" Tag="16" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size24" Content="24 x 24" GroupName="newsize" Tag="24" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size32" Content="32 x 32" GroupName="newsize" Tag="32" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size48" Content="48 x 48" GroupName="newsize" Tag="48" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size256" Content="256 x 256" GroupName="newsize" Tag="256" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size512" Content="512 x 512" GroupName="newsize" Tag="512" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="Size1024" Content="1024 x 1024" GroupName="newsize" Tag="1024" Checked="OnNewSizePreset" />
+                        <RadioButton x:Name="SizeOther" Content="Other" GroupName="newsize" />
+                        <CheckBox x:Name="NewSquare" Content="Square" Checked="OnNewSquareChecked" />
+                        <NumberBox x:Name="NewWidth" Header="Width" Minimum="1" Maximum="1024"
+                                   SpinButtonPlacementMode="Inline" ValueChanged="OnNewWidthChanged" />
+                        <NumberBox x:Name="NewHeight" Header="Height" Minimum="1" Maximum="1024"
+                                   SpinButtonPlacementMode="Inline" ValueChanged="OnNewHeightChanged" />
+                    </StackPanel>
+                    <StackPanel Spacing="6">
+                        <!-- Shown for parity; the engine is always 32-bit BGRA, so this is fixed. -->
+                        <TextBlock Text="Colours" />
+                        <RadioButton Content="Black &amp; white (1-bit)" GroupName="newdepth" IsEnabled="False" />
+                        <RadioButton Content="16 colours (4-bit)" GroupName="newdepth" IsEnabled="False" />
+                        <RadioButton Content="256 colours (8-bit)" GroupName="newdepth" IsEnabled="False" />
+                        <RadioButton Content="True Color (24-bit)" GroupName="newdepth" IsEnabled="False" />
+                        <RadioButton Content="True Color + Alpha (32-bit)" GroupName="newdepth" IsChecked="True" IsEnabled="False" />
+                    </StackPanel>
+                </StackPanel>
+                <CheckBox x:Name="NewDontAsk" Content="Don't ask again" />
+            </StackPanel>
+        </ContentDialog>
+
+        <ContentDialog x:Name="SaveDialog"
+                       Title="Save image"
+                       PrimaryButtonText="Save"
+                       CloseButtonText="Cancel"
+                       DefaultButton="Primary">
+            <StackPanel Spacing="8">
+                <ComboBox x:Name="SaveFormatCombo" Header="Format"
+                          HorizontalAlignment="Stretch" SelectedIndex="0">
+                    <ComboBoxItem Content="PNG image (*.png)" />
+                    <ComboBoxItem Content="BMP image (*.bmp)" />
+                    <ComboBoxItem Content="JPEG image (*.jpg)" />
+                    <ComboBoxItem Content="GIF image (*.gif)" />
+                    <ComboBoxItem Content="TIFF image (*.tiff)" />
+                    <ComboBoxItem Content="Windows icon (*.ico)" />
+                </ComboBox>
+            </StackPanel>
+        </ContentDialog>
     </Grid>
 </Window>

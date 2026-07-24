@@ -16,7 +16,6 @@
 #include <robuffer.h>
 #include <algorithm>
 #include <cmath>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -651,6 +650,55 @@ namespace winrt::IconMaster::implementation
         StatusText().Text(L"New " + winrt::to_hstring(w) + L" x " + winrt::to_hstring(h) + L" icon.");
     }
 
+    bool MainWindow::IsNewSquare()
+    {
+        auto ic = NewSquare().IsChecked();
+        return ic && ic.Value();
+    }
+
+    void MainWindow::OnNewSizePreset(IInspectable const& sender, RoutedEventArgs const&)
+    {
+        if (m_newDialogGuard) { return; }
+        const auto tag = winrt::unbox_value_or<winrt::hstring>(sender.as<FrameworkElement>().Tag(), L"");
+        const int32_t val = static_cast<int32_t>(std::wcstol(tag.c_str(), nullptr, 10));
+        if (val <= 0) { return; }
+        m_newDialogGuard = true;
+        NewWidth().Value(val);
+        NewHeight().Value(val);
+        NewSquare().IsChecked(true);
+        m_newDialogGuard = false;
+    }
+
+    void MainWindow::OnNewSquareChecked(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (m_newDialogGuard) { return; }
+        const double v = NewWidth().Value();
+        if (std::isnan(v)) { return; }
+        m_newDialogGuard = true;
+        NewHeight().Value(v);
+        m_newDialogGuard = false;
+    }
+
+    void MainWindow::OnNewWidthChanged(NumberBox const&, NumberBoxValueChangedEventArgs const& a)
+    {
+        if (m_newDialogGuard || !IsNewSquare()) { return; }
+        const double v = a.NewValue();
+        if (std::isnan(v)) { return; }
+        m_newDialogGuard = true;
+        NewHeight().Value(v);
+        m_newDialogGuard = false;
+    }
+
+    void MainWindow::OnNewHeightChanged(NumberBox const&, NumberBoxValueChangedEventArgs const& a)
+    {
+        if (m_newDialogGuard || !IsNewSquare()) { return; }
+        const double v = a.NewValue();
+        if (std::isnan(v)) { return; }
+        m_newDialogGuard = true;
+        NewWidth().Value(v);
+        m_newDialogGuard = false;
+    }
+
     winrt::fire_and_forget MainWindow::OnNew(IInspectable const&, RoutedEventArgs const&)
     {
         auto lifetime = get_strong();
@@ -660,170 +708,50 @@ namespace winrt::IconMaster::implementation
 
         if (m_askOnNew)
         {
-            // Reentrancy guard so the width/height/square controls can mirror each
-            // other without triggering their own change handlers recursively.
-            auto guard = std::make_shared<bool>(false);
+            // Seed the dialog controls from the remembered size. The guard keeps the
+            // width/height/square sync handlers from firing during this setup.
+            m_newDialogGuard = true;
+            NewWidth().Value(m_newW);
+            NewHeight().Value(m_newH);
+            NewSquare().IsChecked(m_newW == m_newH);
+            NewDontAsk().IsChecked(false);
 
-            NumberBox widthBox;
-            widthBox.Header(winrt::box_value(L"Width"));
-            widthBox.Minimum(1);
-            widthBox.Maximum(1024);
-            widthBox.SpinButtonPlacementMode(NumberBoxSpinButtonPlacementMode::Inline);
-            widthBox.Value(m_newW);
-
-            NumberBox heightBox;
-            heightBox.Header(winrt::box_value(L"Height"));
-            heightBox.Minimum(1);
-            heightBox.Maximum(1024);
-            heightBox.SpinButtonPlacementMode(NumberBoxSpinButtonPlacementMode::Inline);
-            heightBox.Value(m_newH);
-
-            CheckBox squareBox;
-            squareBox.Content(winrt::box_value(L"Square"));
-            squareBox.IsChecked(m_newW == m_newH);
-
-            const auto isSquare = [squareBox]() -> bool
+            winrt::Microsoft::UI::Xaml::Controls::RadioButton preset{ nullptr };
+            if (m_newW == m_newH)
             {
-                auto ic = squareBox.IsChecked();
-                return ic && ic.Value();
-            };
-
-            widthBox.ValueChanged([=](NumberBox const&, NumberBoxValueChangedEventArgs const& a)
-            {
-                if (*guard || !isSquare()) { return; }
-                const double v = a.NewValue();
-                if (std::isnan(v)) { return; }
-                *guard = true;
-                heightBox.Value(v);
-                *guard = false;
-            });
-            heightBox.ValueChanged([=](NumberBox const&, NumberBoxValueChangedEventArgs const& a)
-            {
-                if (*guard || !isSquare()) { return; }
-                const double v = a.NewValue();
-                if (std::isnan(v)) { return; }
-                *guard = true;
-                widthBox.Value(v);
-                *guard = false;
-            });
-            squareBox.Checked([=](IInspectable const&, RoutedEventArgs const&)
-            {
-                if (*guard) { return; }
-                const double v = widthBox.Value();
-                if (std::isnan(v)) { return; }
-                *guard = true;
-                heightBox.Value(v);
-                *guard = false;
-            });
-
-            StackPanel sizePanel;
-            sizePanel.Spacing(6);
-            {
-                TextBlock header;
-                header.Text(L"Size");
-                sizePanel.Children().Append(header);
-            }
-
-            const bool startsSquare = (m_newW == m_newH);
-            const int32_t presets[] = { 16, 24, 32, 48, 256, 512, 1024 };
-            bool matchedPreset = false;
-            for (int32_t p : presets)
-            {
-                RadioButton rb;
-                rb.Content(winrt::box_value(winrt::to_hstring(p) + L" x " + winrt::to_hstring(p)));
-                rb.GroupName(L"newsize");
-                rb.Tag(winrt::box_value(p));
-                rb.Checked([=](IInspectable const& s, RoutedEventArgs const&)
+                switch (m_newW)
                 {
-                    const int32_t val = winrt::unbox_value_or<int32_t>(s.as<FrameworkElement>().Tag(), 0);
-                    if (val <= 0) { return; }
-                    *guard = true;
-                    widthBox.Value(val);
-                    heightBox.Value(val);
-                    squareBox.IsChecked(true);
-                    *guard = false;
-                });
-                if (startsSquare && p == m_newW)
-                {
-                    rb.IsChecked(true);
-                    matchedPreset = true;
+                case 16:   preset = Size16();   break;
+                case 24:   preset = Size24();   break;
+                case 32:   preset = Size32();   break;
+                case 48:   preset = Size48();   break;
+                case 256:  preset = Size256();  break;
+                case 512:  preset = Size512();  break;
+                case 1024: preset = Size1024(); break;
+                default:   break;
                 }
-                sizePanel.Children().Append(rb);
             }
+            if (preset != nullptr) { preset.IsChecked(true); }
+            else                   { SizeOther().IsChecked(true); }
+            m_newDialogGuard = false;
+
+            if (NewIconDialog().XamlRoot() == nullptr)
             {
-                RadioButton other;
-                other.Content(winrt::box_value(L"Other"));
-                other.GroupName(L"newsize");
-                other.Tag(winrt::box_value(L"other"));
-                other.IsChecked(!matchedPreset);
-                sizePanel.Children().Append(other);
+                NewIconDialog().XamlRoot(this->Content().XamlRoot());
             }
-            sizePanel.Children().Append(squareBox);
-            sizePanel.Children().Append(widthBox);
-            sizePanel.Children().Append(heightBox);
-
-            // Colour depth: shown for parity with the original, but the engine is
-            // always 32-bit BGRA, so the group is fixed on that option and disabled.
-            StackPanel colorPanel;
-            colorPanel.Spacing(6);
-            {
-                TextBlock header;
-                header.Text(L"Colours");
-                colorPanel.Children().Append(header);
-            }
-            const wchar_t* depths[] = {
-                L"Black & white (1-bit)",
-                L"16 colours (4-bit)",
-                L"256 colours (8-bit)",
-                L"True Color (24-bit)",
-                L"True Color + Alpha (32-bit)"
-            };
-            for (int32_t i = 0; i < 5; ++i)
-            {
-                RadioButton rb;
-                rb.Content(winrt::box_value(winrt::hstring{ depths[i] }));
-                rb.GroupName(L"newdepth");
-                if (i == 4) { rb.IsChecked(true); }
-                rb.IsEnabled(false); // 32-bit BGRA only for now
-                colorPanel.Children().Append(rb);
-            }
-
-            StackPanel columns;
-            columns.Orientation(Orientation::Horizontal);
-            columns.Spacing(32);
-            columns.Children().Append(sizePanel);
-            columns.Children().Append(colorPanel);
-
-            CheckBox dontAsk;
-            dontAsk.Content(winrt::box_value(L"Don't ask again"));
-
-            StackPanel root;
-            root.Spacing(16);
-            root.Children().Append(columns);
-            root.Children().Append(dontAsk);
-
-            ContentDialog dialog;
-            dialog.Title(winrt::box_value(L"New icon"));
-            dialog.PrimaryButtonText(L"OK");
-            dialog.CloseButtonText(L"Cancel");
-            dialog.DefaultButton(ContentDialogButton::Primary);
-            dialog.Content(root);
-            dialog.XamlRoot(this->Content().XamlRoot());
-
-            const auto result = co_await dialog.ShowAsync();
-            if (result != ContentDialogResult::Primary)
+            if (co_await NewIconDialog().ShowAsync() != ContentDialogResult::Primary)
             {
                 co_return;
             }
 
-            const double dw = widthBox.Value();
-            const double dh = heightBox.Value();
+            const double dw = NewWidth().Value();
+            const double dh = NewHeight().Value();
             w = std::isnan(dw) ? m_newW : std::clamp(static_cast<int32_t>(std::lround(dw)), 1, 1024);
             h = std::isnan(dh) ? m_newH : std::clamp(static_cast<int32_t>(std::lround(dh)), 1, 1024);
             m_newW = w;
             m_newH = h;
 
-            auto ask = dontAsk.IsChecked();
+            auto ask = NewDontAsk().IsChecked();
             if (ask && ask.Value())
             {
                 m_askOnNew = false;
@@ -893,31 +821,11 @@ namespace winrt::IconMaster::implementation
 
         // Ask the user which image format to save. There are more raster formats
         // than PNG (BMP, JPEG, GIF, TIFF), plus the multi-size Windows ICO.
-        ComboBox formatBox;
-        formatBox.Header(winrt::box_value(L"Format"));
-        for (auto const& label : { L"PNG image (*.png)", L"BMP image (*.bmp)", L"JPEG image (*.jpg)",
-                                   L"GIF image (*.gif)", L"TIFF image (*.tiff)", L"Windows icon (*.ico)" })
+        if (SaveDialog().XamlRoot() == nullptr)
         {
-            ComboBoxItem item;
-            item.Content(winrt::box_value(winrt::hstring{ label }));
-            formatBox.Items().Append(item);
+            SaveDialog().XamlRoot(this->Content().XamlRoot());
         }
-        formatBox.SelectedIndex(0);
-        formatBox.HorizontalAlignment(HorizontalAlignment::Stretch);
-
-        StackPanel root;
-        root.Spacing(8);
-        root.Children().Append(formatBox);
-
-        ContentDialog dialog;
-        dialog.Title(winrt::box_value(L"Save image"));
-        dialog.PrimaryButtonText(L"Save");
-        dialog.CloseButtonText(L"Cancel");
-        dialog.DefaultButton(ContentDialogButton::Primary);
-        dialog.Content(root);
-        dialog.XamlRoot(this->Content().XamlRoot());
-
-        if (co_await dialog.ShowAsync() != ContentDialogResult::Primary)
+        if (co_await SaveDialog().ShowAsync() != ContentDialogResult::Primary)
         {
             co_return;
         }
@@ -925,7 +833,7 @@ namespace winrt::IconMaster::implementation
         winrt::hstring typeName, ext;
         winrt::guid encoderId{};
         bool isIco = false;
-        switch (formatBox.SelectedIndex())
+        switch (SaveFormatCombo().SelectedIndex())
         {
         case 1:  typeName = L"BMP image";    ext = L".bmp";  encoderId = WGI::BitmapEncoder::BmpEncoderId();  break;
         case 2:  typeName = L"JPEG image";   ext = L".jpg";  encoderId = WGI::BitmapEncoder::JpegEncoderId(); break;
