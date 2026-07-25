@@ -1497,17 +1497,14 @@ namespace winrt::IconMaster::implementation
             const int32_t lx = dx / doc().zoom;
             const int32_t ly = dy / doc().zoom;
             const winrt::Windows::UI::Color c = doc().context.GetPixel(lx, ly);
-            if (c.A == 0)
-            {
-                const bool light = ((((dx / k_checkerCell) + (dy / k_checkerCell)) & 1) == 0);
-                b = g = r = light ? 0xFF : 0xC8;
-            }
-            else
-            {
-                b = c.B;
-                g = c.G;
-                r = c.R;
-            }
+            // Composite the (possibly semi-transparent) pixel over the checkerboard
+            // so partial alpha - e.g. soft brush edges - is actually visible.
+            const bool light = ((((dx / k_checkerCell) + (dy / k_checkerCell)) & 1) == 0);
+            const double bg = light ? 255.0 : 200.0; // 0xFF / 0xC8
+            const double a = c.A / 255.0;
+            b = static_cast<uint8_t>(std::lround(c.B * a + bg * (1.0 - a)));
+            g = static_cast<uint8_t>(std::lround(c.G * a + bg * (1.0 - a)));
+            r = static_cast<uint8_t>(std::lround(c.R * a + bg * (1.0 - a)));
         }
 
         data[i + 0] = b;
@@ -1521,14 +1518,15 @@ namespace winrt::IconMaster::implementation
         const int32_t x0 = lx * doc().zoom;
         const int32_t y0 = ly * doc().zoom;
 
+        const double a = color.A / 255.0;
         for (int32_t dy = y0 + 1; dy < y0 + doc().zoom && dy < displayHeight; ++dy)
         {
             for (int32_t dx = x0 + 1; dx < x0 + doc().zoom && dx < displayWidth; ++dx)
             {
                 const size_t i = (static_cast<size_t>(dy) * displayWidth + dx) * 4;
-                data[i + 0] = color.B;
-                data[i + 1] = color.G;
-                data[i + 2] = color.R;
+                data[i + 0] = static_cast<uint8_t>(std::lround(color.B * a + data[i + 0] * (1.0 - a)));
+                data[i + 1] = static_cast<uint8_t>(std::lround(color.G * a + data[i + 1] * (1.0 - a)));
+                data[i + 2] = static_cast<uint8_t>(std::lround(color.R * a + data[i + 2] * (1.0 - a)));
                 data[i + 3] = 0xFF;
             }
         }
@@ -1569,8 +1567,9 @@ namespace winrt::IconMaster::implementation
                 {
                     continue;
                 }
-                const winrt::Windows::UI::Color blended = OverBlend(color, c, doc().context.GetPixel(x, y));
-                PaintPreviewBlock(data, dw, dh, x, y, blended);
+                winrt::Windows::UI::Color src = color;
+                src.A = static_cast<uint8_t>(std::clamp(static_cast<int>(std::lround(color.A * c)), 0, 255));
+                PaintPreviewBlock(data, dw, dh, x, y, src);
             }
         }
     }
