@@ -346,11 +346,15 @@ namespace winrt::IconMaster::implementation
             const bool inBounds = pos.X >= 0 && pos.Y >= 0 &&
                                   lx >= 0 && lx < doc().context.PixelWidth() &&
                                   ly >= 0 && ly < doc().context.PixelHeight();
-            const bool stampTool = (m_toolKind == ToolKind::Pen || m_toolKind == ToolKind::Eraser);
+            // Pen/Eraser and the shape tools all stamp the brush footprint, so
+            // preview it on hover (for shapes this shows where the first point lands).
+            const bool footprintTool = (m_toolKind == ToolKind::Pen ||
+                                        m_toolKind == ToolKind::Eraser ||
+                                        IsShapeTool(m_toolKind));
 
             m_hoverX = lx;
             m_hoverY = ly;
-            m_hoverValid = inBounds && stampTool && !pressed;
+            m_hoverValid = inBounds && footprintTool && !pressed;
 
             DrawFromPointer(e);
             if (!pressed)
