@@ -305,7 +305,8 @@
                            Stretch="None"
                            PointerPressed="OnCanvasPointerPressed"
                            PointerMoved="OnCanvasPointerMoved"
-                           PointerReleased="OnCanvasPointerReleased" />
+                           PointerReleased="OnCanvasPointerReleased"
+                           PointerExited="OnCanvasPointerExited" />
                     </Border>
                 </ScrollViewer>
 

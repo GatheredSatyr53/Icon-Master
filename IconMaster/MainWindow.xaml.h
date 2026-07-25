@@ -22,6 +22,7 @@ namespace winrt::IconMaster::implementation
         void OnCanvasPointerPressed(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void OnCanvasPointerMoved(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void OnCanvasPointerReleased(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
+        void OnCanvasPointerExited(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
 
         void OnSelectAll(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnDeselect(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -101,6 +102,7 @@ namespace winrt::IconMaster::implementation
         void OverlayShapePreview(uint8_t* data, int32_t dw, int32_t dh);
         void OverlayFloating(uint8_t* data, int32_t dw, int32_t dh);
         void OverlaySelectionBorder(uint8_t* data, int32_t dw, int32_t dh);
+        void OverlayBrushPreview(uint8_t* data, int32_t dw, int32_t dh); // hover footprint of Pen/Eraser
         uint8_t* DisplayData();
         void SetZoom(int32_t zoom);
 
@@ -128,6 +130,11 @@ namespace winrt::IconMaster::implementation
         ToolKind m_toolKind{ ToolKind::Pen };
         int32_t m_brushSize{ 1 };       // Pen/Eraser footprint, in pixels (square)
         bool m_suppressColorSync{ false };
+
+        // Live brush-footprint preview under the cursor (Pen/Eraser hover, no button).
+        bool m_hoverValid{ false };
+        int32_t m_hoverX{ 0 };
+        int32_t m_hoverY{ 0 };
 
         // In-progress shape drag (line/rectangle/ellipse).
         bool m_shapeActive{ false };

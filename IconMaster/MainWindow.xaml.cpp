@@ -209,6 +209,8 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
+        m_hoverValid = false; // the hover preview gives way to the actual stroke
+
         auto props = e.GetCurrentPoint(CanvasImage()).Properties();
         const bool left = props.IsLeftButtonPressed();
 
@@ -296,7 +298,45 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
+        // Not dragging: update the live brush-footprint preview (Pen/Eraser only),
+        // then draw if a button is held. DrawFromPointer renders on a real stroke;
+        // otherwise we render here to reflect the moving preview.
+        if (doc().context != nullptr)
+        {
+            auto point = e.GetCurrentPoint(CanvasImage());
+            auto props = point.Properties();
+            const bool pressed = props.IsLeftButtonPressed() || props.IsRightButtonPressed();
+
+            auto pos = point.Position();
+            const int32_t lx = static_cast<int32_t>(pos.X) / doc().zoom;
+            const int32_t ly = static_cast<int32_t>(pos.Y) / doc().zoom;
+            const bool inBounds = pos.X >= 0 && pos.Y >= 0 &&
+                                  lx >= 0 && lx < doc().context.PixelWidth() &&
+                                  ly >= 0 && ly < doc().context.PixelHeight();
+            const bool stampTool = (m_toolKind == ToolKind::Pen || m_toolKind == ToolKind::Eraser);
+
+            m_hoverX = lx;
+            m_hoverY = ly;
+            m_hoverValid = inBounds && stampTool && !pressed;
+
+            DrawFromPointer(e);
+            if (!pressed)
+            {
+                Render();
+            }
+            return;
+        }
+
         DrawFromPointer(e);
+    }
+
+    void MainWindow::OnCanvasPointerExited(IInspectable const&, PointerRoutedEventArgs const&)
+    {
+        if (m_hoverValid)
+        {
+            m_hoverValid = false;
+            Render();
+        }
     }
 
     void MainWindow::OnCanvasPointerReleased(IInspectable const&, PointerRoutedEventArgs const& e)
@@ -622,6 +662,7 @@ namespace winrt::IconMaster::implementation
         m_selecting = false;
         m_moving = false;
         m_shapeActive = false;
+        m_hoverValid = false;
         m_floatPixels.clear();
     }
 
@@ -1414,6 +1455,34 @@ namespace winrt::IconMaster::implementation
         for (int32_t dy = y0; dy <= y1; ++dy) { put(x0, dy); put(x1, dy); }
     }
 
+    void MainWindow::OverlayBrushPreview(uint8_t* data, int32_t dw, int32_t dh)
+    {
+        const int32_t s = std::clamp(m_brushSize, 1, 64);
+        const int32_t startX = m_hoverX - (s / 2); // same centring as StampBrush
+        const int32_t startY = m_hoverY - (s / 2);
+        const int32_t x0 = startX * doc().zoom;
+        const int32_t y0 = startY * doc().zoom;
+        const int32_t x1 = (startX + s) * doc().zoom;
+        const int32_t y1 = (startY + s) * doc().zoom;
+
+        // Invert the outline so it stays visible over any pixels/checker/grid.
+        auto invert = [&](int32_t dx, int32_t dy)
+        {
+            if (dx < 0 || dx >= dw || dy < 0 || dy >= dh)
+            {
+                return;
+            }
+            const size_t i = (static_cast<size_t>(dy) * dw + dx) * 4;
+            data[i + 0] = static_cast<uint8_t>(255 - data[i + 0]);
+            data[i + 1] = static_cast<uint8_t>(255 - data[i + 1]);
+            data[i + 2] = static_cast<uint8_t>(255 - data[i + 2]);
+            data[i + 3] = 0xFF;
+        };
+
+        for (int32_t dx = x0; dx <= x1; ++dx) { invert(dx, y0); invert(dx, y1); }
+        for (int32_t dy = y0; dy <= y1; ++dy) { invert(x0, dy); invert(x1, dy); }
+    }
+
     void MainWindow::Render()
     {
         if (m_display == nullptr)
@@ -1429,6 +1498,7 @@ namespace winrt::IconMaster::implementation
         if (m_shapeActive)   { OverlayShapePreview(data, dw, dh); }
         if (m_moving)        { OverlayFloating(data, dw, dh); }
         if (doc().hasSelection)  { OverlaySelectionBorder(data, dw, dh); }
+        if (m_hoverValid)    { OverlayBrushPreview(data, dw, dh); }
 
         m_display.Invalidate();
     }
