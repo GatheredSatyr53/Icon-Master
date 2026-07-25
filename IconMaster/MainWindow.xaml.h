@@ -14,7 +14,7 @@ namespace winrt::IconMaster::implementation
         MainWindow();
 
         void OnToolSelected(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
-        void OnBrushSizeChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& args);
+        void OnBrushSizeChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const & args);
         void OnSwatchClick(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnColorChanged(winrt::Microsoft::UI::Xaml::Controls::ColorPicker const& sender, winrt::Microsoft::UI::Xaml::Controls::ColorChangedEventArgs const& args);
         void OnZoomIn(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -181,7 +181,7 @@ namespace winrt::IconMaster::implementation
         winrt::IconMaster::ITool m_currentTool{ nullptr };
         winrt::IconMaster::IShapeTool m_currentShape{ nullptr };
         winrt::Microsoft::UI::Xaml::Media::Imaging::WriteableBitmap m_display{ nullptr };
-    };
+};
 }
 
 namespace winrt::IconMaster::factory_implementation

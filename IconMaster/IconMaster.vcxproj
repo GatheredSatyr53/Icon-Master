@@ -125,6 +125,7 @@
     <ClInclude Include="LineTool.h" />
     <ClInclude Include="RectangleTool.h" />
     <ClInclude Include="EllipseTool.h" />
+    <ClInclude Include="StringFormatConverter.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -148,11 +149,13 @@
     <ClCompile Include="RectangleTool.cpp" />
     <ClCompile Include="EllipseTool.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClCompile Include="StringFormatConverter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Midl Include="Editor.idl" />
     <Midl Include="MainWindow.idl" />
     <Midl Include="SizeInput.idl" />
+    <Midl Include="StringFormatConverter.idl" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">

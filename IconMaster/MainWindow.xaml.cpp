@@ -436,18 +436,14 @@ namespace winrt::IconMaster::implementation
         }
     }
 
-    void MainWindow::OnBrushSizeChanged(IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&)
+    void winrt::IconMaster::implementation::MainWindow::OnBrushSizeChanged(IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& args)
     {
-        auto combo = sender.try_as<ComboBox>();
-        if (combo == nullptr)
+        auto slider = sender.try_as<Slider>();
+        if (slider == nullptr)
         {
             return;
         }
-        if (auto item = combo.SelectedItem().try_as<ComboBoxItem>())
-        {
-            const auto tag = winrt::unbox_value_or<winrt::hstring>(item.Tag(), L"1");
-            m_brushSize = std::clamp(static_cast<int32_t>(std::wcstol(tag.c_str(), nullptr, 10)), 1, 64);
-        }
+        m_brushSize = (int32_t) slider.Value();
     }
 
     void MainWindow::CommitShape(int32_t x1, int32_t y1)

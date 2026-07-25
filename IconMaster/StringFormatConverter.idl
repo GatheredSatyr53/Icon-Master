@@ -1,0 +1,9 @@
+namespace IconMaster
+{
+    [default_interface]
+    runtimeclass StringFormatConverter : Microsoft.UI.Xaml.Data.IValueConverter
+    {
+        StringFormatConverter();
+        String Format;
+    }
+}

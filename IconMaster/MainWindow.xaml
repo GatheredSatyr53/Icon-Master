@@ -19,8 +19,9 @@
         <Grid.Resources>
             <ResourceDictionary>
                 <ResourceDictionary.MergedDictionaries>
-                    <ResourceDictionary Source="/ResourceDictionary.xaml"/>
+                    <ResourceDictionary Source="ms-appx:///ResourceDictionary.xaml"/>
                 </ResourceDictionary.MergedDictionaries>
+                <local:StringFormatConverter x:Key="thumbTooltipConverter" Format="{}{0} px" />
             </ResourceDictionary>
         </Grid.Resources>
         <Grid.RowDefinitions>
@@ -185,7 +186,7 @@
             <ScrollViewer
                       Style="{StaticResource ToolbarScrollPanelStyle}"
                       VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="6" Width="104">
+                <StackPanel Spacing="12" Width="104" >
                     <StackPanel.Resources>
                         <!-- Compact, icon-only toolbar buttons. Labels live in tooltips. -->
                         <Style TargetType="Button">
@@ -201,61 +202,64 @@
                         </Style>
                     </StackPanel.Resources>
 
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <RadioButton Tag="pen" GroupName="tools" IsChecked="True"
+                    <StackPanel Spacing="6" Width="104">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <RadioButton Tag="pen" GroupName="tools" IsChecked="True"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Pen">
-                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="16" />
-                        </RadioButton>
-                        <RadioButton Tag="eraser" GroupName="tools"
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="16" />
+                            </RadioButton>
+                            <RadioButton Tag="eraser" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Eraser">
-                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE75C;" FontSize="16" />
-                        </RadioButton>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <RadioButton Tag="fill" GroupName="tools"
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE75C;" FontSize="16" />
+                            </RadioButton>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <RadioButton Tag="fill" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Fill">
-                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE790;" FontSize="16" />
-                        </RadioButton>
-                        <RadioButton Tag="eyedropper" GroupName="tools"
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE790;" FontSize="16" />
+                            </RadioButton>
+                            <RadioButton Tag="eyedropper" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Eyedropper">
-                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEF3C;" FontSize="16" />
-                        </RadioButton>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <RadioButton Tag="line" GroupName="tools"
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEF3C;" FontSize="16" />
+                            </RadioButton>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <RadioButton Tag="line" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Line">
-                            <PathIcon Width="16" Height="16"
+                                <PathIcon Width="16" Height="16"
                               Data="M2.2,12.2 L3.8,13.8 L13.8,3.8 L12.2,2.2 Z" />
-                        </RadioButton>
-                        <RadioButton Tag="rectangle" GroupName="tools"
+                            </RadioButton>
+                            <RadioButton Tag="rectangle" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Rectangle">
-                            <PathIcon Width="16" Height="16"
+                                <PathIcon Width="16" Height="16"
                               Data="F0 M2,4 H14 V12 H2 Z M4,6 H12 V10 H4 Z" />
-                        </RadioButton>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <RadioButton Tag="ellipse" GroupName="tools"
+                            </RadioButton>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <RadioButton Tag="ellipse" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Ellipse">
-                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEA3A;" FontSize="16" />
-                        </RadioButton>
-                        <RadioButton Tag="select" GroupName="tools"
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEA3A;" FontSize="16" />
+                            </RadioButton>
+                            <RadioButton Tag="select" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Select">
-                            <PathIcon Width="16" Height="16"
+                                <PathIcon Width="16" Height="16"
                               Data="M2,3 H6 V4 H3 V7 H2 Z M14,3 H10 V4 H13 V7 H14 Z M2,13 H6 V12 H3 V9 H2 Z M14,13 H10 V12 H13 V9 H14 Z" />
-                        </RadioButton>
+                            </RadioButton>
+                        </StackPanel>
                     </StackPanel>
 
-                    <ComboBox x:Name="BrushSizeCombo" HorizontalAlignment="Stretch" Height="38"
-                              Margin="0,6,0,0"
-                              ToolTipService.ToolTip="Brush size (Pen / Eraser)"
-                              SelectionChanged="OnBrushSizeChanged">
-                        <ComboBoxItem Content="1 px" Tag="1" IsSelected="True" />
-                        <ComboBoxItem Content="2 px" Tag="2" />
-                        <ComboBoxItem Content="3 px" Tag="3" />
-                        <ComboBoxItem Content="4 px" Tag="4" />
-                        <ComboBoxItem Content="6 px" Tag="6" />
-                        <ComboBoxItem Content="8 px" Tag="8" />
-                    </ComboBox>
+                    <Border Style="{StaticResource HorizontalDividerStyle}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="6" Width="104">
+                        <PathIcon Data="M2.055,3.067 H13.945 V4.067 H2.055 Z
+                M2.055,7     H13.945 V9     H2.055 Z
+                M2.055,10.657 H13.945 V13.657 H2.055 Z" Width="16" Height="16" VerticalAlignment="Center"/>
+                        <Slider x:Name="BrushSizeSlider" HorizontalAlignment="Stretch" Width="78"
+                                ValueChanged="OnBrushSizeChanged"
+          ToolTipService.ToolTip="Brush size (Pen / Eraser)" ThumbToolTipValueConverter="{StaticResource thumbTooltipConverter}" Minimum="1" Maximum="8" StepFrequency="1" Value="1" SnapsTo="StepValues">
+                        </Slider>
+                    </StackPanel>
+                    
                 </StackPanel>
             </ScrollViewer>
         </Border>
