@@ -33,6 +33,33 @@ using namespace winrt::Microsoft::UI::Xaml::Media::Imaging;
 namespace
 {
     constexpr winrt::Windows::UI::Color kTransparent{ 0x00, 0x00, 0x00, 0x00 };
+
+    // Source-over composite of src (scaled by coverage) onto dst.
+    winrt::Windows::UI::Color OverBlend(winrt::Windows::UI::Color const& src, double coverage, winrt::Windows::UI::Color const& dst)
+    {
+        const double sa = (src.A / 255.0) * std::clamp(coverage, 0.0, 1.0);
+        if (sa <= 0.0) { return dst; }
+        const double da = dst.A / 255.0;
+        const double outA = sa + da * (1.0 - sa);
+        if (outA <= 0.0) { return kTransparent; }
+        auto ch = [&](uint8_t s, uint8_t d) -> uint8_t
+        {
+            const double v = (s / 255.0 * sa + d / 255.0 * da * (1.0 - sa)) / outA;
+            return static_cast<uint8_t>(std::clamp(static_cast<int>(std::lround(v * 255.0)), 0, 255));
+        };
+        return winrt::Windows::UI::Color{
+            static_cast<uint8_t>(std::clamp(static_cast<int>(std::lround(outA * 255.0)), 0, 255)),
+            ch(src.R, dst.R), ch(src.G, dst.G), ch(src.B, dst.B) };
+    }
+
+    // Soft erase: reduce the destination alpha by coverage.
+    winrt::Windows::UI::Color EraseBlend(winrt::Windows::UI::Color const& dst, double coverage)
+    {
+        const double da = (dst.A / 255.0) * (1.0 - std::clamp(coverage, 0.0, 1.0));
+        return winrt::Windows::UI::Color{
+            static_cast<uint8_t>(std::clamp(static_cast<int>(std::lround(da * 255.0)), 0, 255)),
+            dst.R, dst.G, dst.B };
+    }
 }
 
 namespace winrt::IconMaster::implementation
@@ -209,6 +236,8 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
+        m_hoverValid = false; // the hover preview gives way to the actual stroke
+
         auto props = e.GetCurrentPoint(CanvasImage()).Properties();
         const bool left = props.IsLeftButtonPressed();
 
@@ -262,6 +291,12 @@ namespace winrt::IconMaster::implementation
         {
             PushUndo();
         }
+        if (m_toolKind == ToolKind::Pen || m_toolKind == ToolKind::Eraser)
+        {
+            const bool erase = (m_toolKind == ToolKind::Eraser) || (right && !left);
+            BeginStroke(erase);
+            CanvasImage().CapturePointer(e.Pointer());
+        }
         DrawFromPointer(e);
     }
 
@@ -296,11 +331,64 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
+        // Not dragging: update the live brush-footprint preview (Pen/Eraser only),
+        // then draw if a button is held. DrawFromPointer renders on a real stroke;
+        // otherwise we render here to reflect the moving preview.
+        if (doc().context != nullptr)
+        {
+            auto point = e.GetCurrentPoint(CanvasImage());
+            auto props = point.Properties();
+            const bool pressed = props.IsLeftButtonPressed() || props.IsRightButtonPressed();
+
+            auto pos = point.Position();
+            const int32_t lx = static_cast<int32_t>(pos.X) / doc().zoom;
+            const int32_t ly = static_cast<int32_t>(pos.Y) / doc().zoom;
+            const bool inBounds = pos.X >= 0 && pos.Y >= 0 &&
+                                  lx >= 0 && lx < doc().context.PixelWidth() &&
+                                  ly >= 0 && ly < doc().context.PixelHeight();
+            // Pen/Eraser and the shape tools all stamp the brush footprint, so
+            // preview it on hover (for shapes this shows where the first point lands).
+            const bool footprintTool = (m_toolKind == ToolKind::Pen ||
+                                        m_toolKind == ToolKind::Eraser ||
+                                        IsShapeTool(m_toolKind));
+
+            m_hoverX = lx;
+            m_hoverY = ly;
+            m_hoverValid = inBounds && footprintTool && !pressed;
+
+            DrawFromPointer(e);
+            if (!pressed)
+            {
+                RenderHover();
+            }
+            return;
+        }
+
         DrawFromPointer(e);
+    }
+
+    void MainWindow::OnCanvasPointerExited(IInspectable const&, PointerRoutedEventArgs const&)
+    {
+        if (m_hoverValid)
+        {
+            m_hoverValid = false;
+            RenderHover();
+        }
     }
 
     void MainWindow::OnCanvasPointerReleased(IInspectable const&, PointerRoutedEventArgs const& e)
     {
+        if (m_strokeActive)
+        {
+            m_strokeActive = false;
+            m_strokeBase.clear();
+            m_strokeBase.shrink_to_fit();
+            m_strokeCoverage.clear();
+            m_strokeCoverage.shrink_to_fit();
+            CanvasImage().ReleasePointerCapture(e.Pointer());
+            return;
+        }
+
         if (m_moving)
         {
             int32_t px, py;
@@ -391,6 +479,12 @@ namespace winrt::IconMaster::implementation
             m_fill.FillBounded(doc().context, lx, ly,
                                doc().selX, doc().selY, doc().selX + doc().selW - 1, doc().selY + doc().selH - 1);
         }
+        else if (kind == ToolKind::Pen || kind == ToolKind::Eraser)
+        {
+            // The stamp tools honour the brush size and hardness (soft edges);
+            // flood-fill and eyedropper do not.
+            StampStroke(lx, ly);
+        }
         else
         {
             tool.Draw(doc().context, lx, ly);
@@ -410,6 +504,139 @@ namespace winrt::IconMaster::implementation
         StatusText().Text(L"x: " + winrt::to_hstring(lx) + L"  y: " + winrt::to_hstring(ly));
     }
 
+    // Coverage (0..1) of footprint pixel (i,j) in an s x s brush at the current
+    // hardness. 100% hardness => solid square (identical to the old behaviour);
+    // lower hardness feathers the edges toward the centre.
+    double MainWindow::FootprintCoverage(int32_t i, int32_t j, int32_t s) const
+    {
+        if (s <= 1) { return 1.0; }
+        const double hf = std::clamp(m_hardness / 100.0, 0.0, 1.0);
+        if (hf >= 1.0) { return 1.0; }
+        const double c = (s - 1) / 2.0;   // footprint centre
+        const double r = s / 2.0;         // half-extent
+        const double m = std::max(std::abs((i - c) / r), std::abs((j - c) / r));
+        if (m <= hf)  { return 1.0; }
+        if (m >= 1.0) { return 0.0; }
+        return (1.0 - m) / (1.0 - hf);
+    }
+
+    void MainWindow::BeginStroke(bool erase)
+    {
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        m_strokeActive = true;
+        m_strokeErase = erase;
+        m_strokeColor = doc().context.Color();
+        m_strokeBase.assign(static_cast<size_t>(w) * h, kTransparent);
+        m_strokeCoverage.assign(static_cast<size_t>(w) * h, 0.0f);
+        for (int32_t y = 0; y < h; ++y)
+        {
+            for (int32_t x = 0; x < w; ++x)
+            {
+                m_strokeBase[static_cast<size_t>(y) * w + x] = doc().context.GetPixel(x, y);
+            }
+        }
+    }
+
+    // Stamps the brush footprint at (cx,cy), keeping the maximum coverage per pixel
+    // over the whole stroke and re-compositing from the pre-stroke pixels, so soft
+    // edges do not accumulate where stamps overlap along a drag.
+    void MainWindow::StampStroke(int32_t cx, int32_t cy)
+    {
+        if (!m_strokeActive)
+        {
+            return;
+        }
+        const int32_t s = std::clamp(m_brushSize, 1, 64);
+        const int32_t start = -(s / 2);
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        for (int32_t j = 0; j < s; ++j)
+        {
+            for (int32_t i = 0; i < s; ++i)
+            {
+                const int32_t px = cx + start + i;
+                const int32_t py = cy + start + j;
+                if (px < 0 || px >= w || py < 0 || py >= h)
+                {
+                    continue;
+                }
+                const double cov = FootprintCoverage(i, j, s);
+                if (cov <= 0.0)
+                {
+                    continue;
+                }
+                const size_t idx = static_cast<size_t>(py) * w + px;
+                if (static_cast<double>(m_strokeCoverage[idx]) >= cov)
+                {
+                    continue;
+                }
+                m_strokeCoverage[idx] = static_cast<float>(cov);
+                const winrt::Windows::UI::Color base = m_strokeBase[idx];
+                const winrt::Windows::UI::Color out = m_strokeErase
+                    ? EraseBlend(base, cov)
+                    : OverBlend(m_strokeColor, cov, base);
+                doc().context.SetPixel(px, py, out);
+            }
+        }
+    }
+
+    // Fills cov with the maximum brush-footprint coverage along the shape between
+    // the two points, honouring the current thickness and hardness.
+    void MainWindow::AccumulateStrokeCoverage(std::vector<float>& cov, int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+    {
+        if (m_currentShape == nullptr)
+        {
+            return;
+        }
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        const int32_t s = std::clamp(m_brushSize, 1, 64);
+        const int32_t start = -(s / 2);
+        auto points = m_currentShape.Rasterize(x0, y0, x1, y1);
+        for (auto const& p : points)
+        {
+            for (int32_t j = 0; j < s; ++j)
+            {
+                for (int32_t i = 0; i < s; ++i)
+                {
+                    const int32_t px = p.X + start + i;
+                    const int32_t py = p.Y + start + j;
+                    if (px < 0 || px >= w || py < 0 || py >= h)
+                    {
+                        continue;
+                    }
+                    const double c = FootprintCoverage(i, j, s);
+                    const size_t idx = static_cast<size_t>(py) * w + px;
+                    if (c > cov[idx])
+                    {
+                        cov[idx] = static_cast<float>(c);
+                    }
+                }
+            }
+        }
+    }
+
+    void winrt::IconMaster::implementation::MainWindow::OnBrushSizeChanged(IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& args)
+    {
+        auto slider = sender.try_as<Slider>();
+        if (slider == nullptr)
+        {
+            return;
+        }
+        m_brushSize = (int32_t) slider.Value();
+    }
+
+    void MainWindow::OnHardnessChanged(IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const&)
+    {
+        auto slider = sender.try_as<Slider>();
+        if (slider == nullptr)
+        {
+            return;
+        }
+        m_hardness = std::clamp((int32_t) slider.Value(), 0, 100);
+    }
+
     void MainWindow::CommitShape(int32_t x1, int32_t y1)
     {
         if (m_currentShape == nullptr)
@@ -418,10 +645,23 @@ namespace winrt::IconMaster::implementation
         }
 
         const winrt::Windows::UI::Color color = doc().context.Color();
-        auto points = m_currentShape.Rasterize(m_shapeStartX, m_shapeStartY, x1, y1);
-        for (auto const& p : points)
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+
+        // Composite the thick, hardness-aware stroke once (max coverage per pixel).
+        std::vector<float> cov(static_cast<size_t>(w) * h, 0.0f);
+        AccumulateStrokeCoverage(cov, m_shapeStartX, m_shapeStartY, x1, y1);
+        for (int32_t y = 0; y < h; ++y)
         {
-            doc().context.SetPixel(p.X, p.Y, color);
+            for (int32_t x = 0; x < w; ++x)
+            {
+                const double c = cov[static_cast<size_t>(y) * w + x];
+                if (c <= 0.0)
+                {
+                    continue;
+                }
+                doc().context.SetPixel(x, y, OverBlend(color, c, doc().context.GetPixel(x, y)));
+            }
         }
         Render();
     }
@@ -586,6 +826,7 @@ namespace winrt::IconMaster::implementation
         m_selecting = false;
         m_moving = false;
         m_shapeActive = false;
+        m_hoverValid = false;
         m_floatPixels.clear();
     }
 
@@ -1260,17 +1501,14 @@ namespace winrt::IconMaster::implementation
             const int32_t lx = dx / doc().zoom;
             const int32_t ly = dy / doc().zoom;
             const winrt::Windows::UI::Color c = doc().context.GetPixel(lx, ly);
-            if (c.A == 0)
-            {
-                const bool light = ((((dx / k_checkerCell) + (dy / k_checkerCell)) & 1) == 0);
-                b = g = r = light ? 0xFF : 0xC8;
-            }
-            else
-            {
-                b = c.B;
-                g = c.G;
-                r = c.R;
-            }
+            // Composite the (possibly semi-transparent) pixel over the checkerboard
+            // so partial alpha - e.g. soft brush edges - is actually visible.
+            const bool light = ((((dx / k_checkerCell) + (dy / k_checkerCell)) & 1) == 0);
+            const double bg = light ? 255.0 : 200.0; // 0xFF / 0xC8
+            const double a = c.A / 255.0;
+            b = static_cast<uint8_t>(std::lround(c.B * a + bg * (1.0 - a)));
+            g = static_cast<uint8_t>(std::lround(c.G * a + bg * (1.0 - a)));
+            r = static_cast<uint8_t>(std::lround(c.R * a + bg * (1.0 - a)));
         }
 
         data[i + 0] = b;
@@ -1284,14 +1522,15 @@ namespace winrt::IconMaster::implementation
         const int32_t x0 = lx * doc().zoom;
         const int32_t y0 = ly * doc().zoom;
 
+        const double a = color.A / 255.0;
         for (int32_t dy = y0 + 1; dy < y0 + doc().zoom && dy < displayHeight; ++dy)
         {
             for (int32_t dx = x0 + 1; dx < x0 + doc().zoom && dx < displayWidth; ++dx)
             {
                 const size_t i = (static_cast<size_t>(dy) * displayWidth + dx) * 4;
-                data[i + 0] = color.B;
-                data[i + 1] = color.G;
-                data[i + 2] = color.R;
+                data[i + 0] = static_cast<uint8_t>(std::lround(color.B * a + data[i + 0] * (1.0 - a)));
+                data[i + 1] = static_cast<uint8_t>(std::lround(color.G * a + data[i + 1] * (1.0 - a)));
+                data[i + 2] = static_cast<uint8_t>(std::lround(color.R * a + data[i + 2] * (1.0 - a)));
                 data[i + 3] = 0xFF;
             }
         }
@@ -1319,10 +1558,23 @@ namespace winrt::IconMaster::implementation
         {
             return;
         }
-        auto points = m_currentShape.Rasterize(m_shapeStartX, m_shapeStartY, m_shapeCurX, m_shapeCurY);
-        for (auto const& p : points)
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        std::vector<float> cov(static_cast<size_t>(w) * h, 0.0f);
+        AccumulateStrokeCoverage(cov, m_shapeStartX, m_shapeStartY, m_shapeCurX, m_shapeCurY);
+        for (int32_t y = 0; y < h; ++y)
         {
-            PaintPreviewBlock(data, dw, dh, p.X, p.Y, color);
+            for (int32_t x = 0; x < w; ++x)
+            {
+                const double c = cov[static_cast<size_t>(y) * w + x];
+                if (c <= 0.0)
+                {
+                    continue;
+                }
+                winrt::Windows::UI::Color src = color;
+                src.A = static_cast<uint8_t>(std::clamp(static_cast<int>(std::lround(color.A * c)), 0, 255));
+                PaintPreviewBlock(data, dw, dh, x, y, src);
+            }
         }
     }
 
@@ -1378,6 +1630,34 @@ namespace winrt::IconMaster::implementation
         for (int32_t dy = y0; dy <= y1; ++dy) { put(x0, dy); put(x1, dy); }
     }
 
+    void MainWindow::OverlayBrushPreview(uint8_t* data, int32_t dw, int32_t dh)
+    {
+        const int32_t s = std::clamp(m_brushSize, 1, 64);
+        const int32_t startX = m_hoverX - (s / 2); // same centring as the brush footprint
+        const int32_t startY = m_hoverY - (s / 2);
+        const int32_t x0 = startX * doc().zoom;
+        const int32_t y0 = startY * doc().zoom;
+        const int32_t x1 = (startX + s) * doc().zoom;
+        const int32_t y1 = (startY + s) * doc().zoom;
+
+        // Invert the outline so it stays visible over any pixels/checker/grid.
+        auto invert = [&](int32_t dx, int32_t dy)
+        {
+            if (dx < 0 || dx >= dw || dy < 0 || dy >= dh)
+            {
+                return;
+            }
+            const size_t i = (static_cast<size_t>(dy) * dw + dx) * 4;
+            data[i + 0] = static_cast<uint8_t>(255 - data[i + 0]);
+            data[i + 1] = static_cast<uint8_t>(255 - data[i + 1]);
+            data[i + 2] = static_cast<uint8_t>(255 - data[i + 2]);
+            data[i + 3] = 0xFF;
+        };
+
+        for (int32_t dx = x0; dx <= x1; ++dx) { invert(dx, y0); invert(dx, y1); }
+        for (int32_t dy = y0; dy <= y1; ++dy) { invert(x0, dy); invert(x1, dy); }
+    }
+
     void MainWindow::Render()
     {
         if (m_display == nullptr)
@@ -1389,10 +1669,43 @@ namespace winrt::IconMaster::implementation
         const int32_t dh = m_display.PixelHeight();
         uint8_t* data = DisplayData();
 
+        // The base render is expensive (a cross-ABI GetPixel per display pixel), so
+        // cache everything except the cursor hover preview. RenderHover() can then
+        // refresh just the moving outline by blitting the cache instead of redrawing.
         RenderBase(data, dw, dh);
         if (m_shapeActive)   { OverlayShapePreview(data, dw, dh); }
         if (m_moving)        { OverlayFloating(data, dw, dh); }
         if (doc().hasSelection)  { OverlaySelectionBorder(data, dw, dh); }
+
+        const size_t bytes = static_cast<size_t>(dw) * dh * 4;
+        m_baseCache.assign(data, data + bytes);
+
+        if (m_hoverValid)    { OverlayBrushPreview(data, dw, dh); }
+
+        m_display.Invalidate();
+    }
+
+    // Fast path for cursor moves: restore the cached base (no per-pixel work) and
+    // redraw only the small hover outline, so the preview tracks the cursor snappily.
+    void MainWindow::RenderHover()
+    {
+        if (m_display == nullptr)
+        {
+            return;
+        }
+
+        const int32_t dw = m_display.PixelWidth();
+        const int32_t dh = m_display.PixelHeight();
+        const size_t bytes = static_cast<size_t>(dw) * dh * 4;
+        if (m_baseCache.size() != bytes)
+        {
+            Render(); // cache is missing or stale (e.g. after a resize) - rebuild it
+            return;
+        }
+
+        uint8_t* data = DisplayData();
+        std::copy(m_baseCache.begin(), m_baseCache.end(), data);
+        if (m_hoverValid)    { OverlayBrushPreview(data, dw, dh); }
 
         m_display.Invalidate();
     }
