@@ -97,6 +97,7 @@ namespace winrt::IconMaster::implementation
         // Rendering.
         void RebuildDisplay();
         void Render();
+        void RenderHover(); // fast cursor-move refresh: blit the cached base + hover outline
         void RenderBase(uint8_t* data, int32_t dw, int32_t dh);
         void WriteDisplayPixel(uint8_t* data, int32_t displayWidth, int32_t dx, int32_t dy);
         void PaintPreviewBlock(uint8_t* data, int32_t displayWidth, int32_t displayHeight, int32_t lx, int32_t ly, winrt::Windows::UI::Color const& color);
@@ -201,6 +202,7 @@ namespace winrt::IconMaster::implementation
         winrt::IconMaster::ITool m_currentTool{ nullptr };
         winrt::IconMaster::IShapeTool m_currentShape{ nullptr };
         winrt::Microsoft::UI::Xaml::Media::Imaging::WriteableBitmap m_display{ nullptr };
+        std::vector<uint8_t> m_baseCache; // last rendered base (no hover), for fast hover refresh
 };
 }
 

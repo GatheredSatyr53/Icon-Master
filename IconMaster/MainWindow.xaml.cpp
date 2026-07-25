@@ -359,7 +359,7 @@ namespace winrt::IconMaster::implementation
             DrawFromPointer(e);
             if (!pressed)
             {
-                Render();
+                RenderHover();
             }
             return;
         }
@@ -372,7 +372,7 @@ namespace winrt::IconMaster::implementation
         if (m_hoverValid)
         {
             m_hoverValid = false;
-            Render();
+            RenderHover();
         }
     }
 
@@ -1669,10 +1669,42 @@ namespace winrt::IconMaster::implementation
         const int32_t dh = m_display.PixelHeight();
         uint8_t* data = DisplayData();
 
+        // The base render is expensive (a cross-ABI GetPixel per display pixel), so
+        // cache everything except the cursor hover preview. RenderHover() can then
+        // refresh just the moving outline by blitting the cache instead of redrawing.
         RenderBase(data, dw, dh);
         if (m_shapeActive)   { OverlayShapePreview(data, dw, dh); }
         if (m_moving)        { OverlayFloating(data, dw, dh); }
         if (doc().hasSelection)  { OverlaySelectionBorder(data, dw, dh); }
+
+        const size_t bytes = static_cast<size_t>(dw) * dh * 4;
+        m_baseCache.assign(data, data + bytes);
+
+        if (m_hoverValid)    { OverlayBrushPreview(data, dw, dh); }
+
+        m_display.Invalidate();
+    }
+
+    // Fast path for cursor moves: restore the cached base (no per-pixel work) and
+    // redraw only the small hover outline, so the preview tracks the cursor snappily.
+    void MainWindow::RenderHover()
+    {
+        if (m_display == nullptr)
+        {
+            return;
+        }
+
+        const int32_t dw = m_display.PixelWidth();
+        const int32_t dh = m_display.PixelHeight();
+        const size_t bytes = static_cast<size_t>(dw) * dh * 4;
+        if (m_baseCache.size() != bytes)
+        {
+            Render(); // cache is missing or stale (e.g. after a resize) - rebuild it
+            return;
+        }
+
+        uint8_t* data = DisplayData();
+        std::copy(m_baseCache.begin(), m_baseCache.end(), data);
         if (m_hoverValid)    { OverlayBrushPreview(data, dw, dh); }
 
         m_display.Invalidate();
