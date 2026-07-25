@@ -15,6 +15,7 @@ namespace winrt::IconMaster::implementation
 
         void OnToolSelected(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnBrushSizeChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const & args);
+        void OnHardnessChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const & args);
         void OnSwatchClick(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnColorChanged(winrt::Microsoft::UI::Xaml::Controls::ColorPicker const& sender, winrt::Microsoft::UI::Xaml::Controls::ColorChangedEventArgs const& args);
         void OnZoomIn(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -112,7 +113,10 @@ namespace winrt::IconMaster::implementation
         winrt::IconMaster::IShapeTool ShapeToolForKind(ToolKind kind);
         void PointerToPixelClamped(winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args, int32_t& lx, int32_t& ly);
         void DrawFromPointer(winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
-        void StampBrush(winrt::IconMaster::ITool const& tool, int32_t cx, int32_t cy); // stamps an m_brushSize x m_brushSize block
+        double FootprintCoverage(int32_t i, int32_t j, int32_t size) const; // brush coverage 0..1 at (i,j)
+        void BeginStroke(bool erase);                                       // start a soft Pen/Eraser stroke
+        void StampStroke(int32_t cx, int32_t cy);                          // stamp the brush footprint (soft, non-accumulating)
+        void AccumulateStrokeCoverage(std::vector<float>& cov, int32_t x0, int32_t y0, int32_t x1, int32_t y1); // shape footprint coverage
         void CommitShape(int32_t x1, int32_t y1);
 
         // Selection / clipboard.
@@ -128,8 +132,17 @@ namespace winrt::IconMaster::implementation
         static constexpr int32_t k_checkerCell = 8; // transparency checker cell, in display pixels
 
         ToolKind m_toolKind{ ToolKind::Pen };
-        int32_t m_brushSize{ 1 };       // Pen/Eraser footprint, in pixels (square)
+        int32_t m_brushSize{ 1 };       // Pen/Eraser/shape footprint, in pixels (square)
+        int32_t m_hardness{ 100 };      // edge softness, 0..100 (100 = solid)
         bool m_suppressColorSync{ false };
+
+        // In-progress soft Pen/Eraser stroke: re-composited from the pre-stroke
+        // pixels using per-pixel max coverage so soft edges do not accumulate.
+        bool m_strokeActive{ false };
+        bool m_strokeErase{ false };
+        winrt::Windows::UI::Color m_strokeColor{ 0, 0, 0, 0 };
+        std::vector<winrt::Windows::UI::Color> m_strokeBase;
+        std::vector<float> m_strokeCoverage;
 
         // Live brush-footprint preview under the cursor (Pen/Eraser hover, no button).
         bool m_hoverValid{ false };

@@ -22,6 +22,7 @@
                     <ResourceDictionary Source="ms-appx:///ResourceDictionary.xaml"/>
                 </ResourceDictionary.MergedDictionaries>
                 <local:StringFormatConverter x:Key="thumbTooltipConverter" Format="{}{0} px" />
+                <local:StringFormatConverter x:Key="percentTooltipConverter" Format="{}{0} %" />
             </ResourceDictionary>
         </Grid.Resources>
         <Grid.RowDefinitions>
@@ -259,7 +260,17 @@
           ToolTipService.ToolTip="Brush size (Pen / Eraser)" ThumbToolTipValueConverter="{StaticResource thumbTooltipConverter}" Minimum="1" Maximum="8" StepFrequency="1" Value="1" SnapsTo="StepValues">
                         </Slider>
                     </StackPanel>
-                    
+
+                    <StackPanel Orientation="Horizontal" Spacing="6" Width="104">
+                        <PathIcon Data="M8,2 A6,6 0 1 0 8.001,2 Z" Width="16" Height="16" VerticalAlignment="Center"
+                                  ToolTipService.ToolTip="Hardness"/>
+                        <Slider x:Name="HardnessSlider" HorizontalAlignment="Stretch" Width="78"
+                                ValueChanged="OnHardnessChanged"
+                                ToolTipService.ToolTip="Hardness (edge softness)"
+                                ThumbToolTipValueConverter="{StaticResource percentTooltipConverter}"
+                                Minimum="0" Maximum="100" StepFrequency="5" Value="100" SnapsTo="StepValues" />
+                    </StackPanel>
+
                 </StackPanel>
             </ScrollViewer>
         </Border>
