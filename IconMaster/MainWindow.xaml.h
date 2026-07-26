@@ -43,6 +43,7 @@ namespace winrt::IconMaster::implementation
         void OnFlipVertical(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnRotateCW(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnRotateCCW(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        winrt::fire_and_forget OnRotateArbitrary(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
 
         void OnUndo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnRedo(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -59,6 +60,7 @@ namespace winrt::IconMaster::implementation
         void FlipHorizontal();                          // mirror the canvas left<->right
         void FlipVertical();                            // mirror the canvas top<->bottom
         void Rotate90(bool clockwise);                  // rotate the canvas a quarter turn
+        void RotateArbitrary(double degrees);           // rotate by any angle (nearest-neighbour, grows to fit)
         void ResetTransient();
         std::vector<uint8_t> ScaleCanvas(int32_t target); // nearest-neighbour, BGRA8
         winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension); // multi-size ICO

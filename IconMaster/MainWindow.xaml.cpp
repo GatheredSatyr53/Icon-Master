@@ -1054,8 +1054,64 @@ namespace winrt::IconMaster::implementation
         doc().context = rotated;
         doc().hasSelection = false;
         ResetTransient();
-        doc().zoom = FitZoom(std::max(w, h));
-        RebuildDisplay();
+        RebuildDisplay(); // keep the current zoom
+    }
+
+    void MainWindow::RotateArbitrary(double degrees)
+    {
+        if (doc().context == nullptr)
+        {
+            return;
+        }
+        const double norm = std::fmod(degrees, 360.0);
+        if (norm == 0.0)
+        {
+            return;
+        }
+        PushUndo();
+
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        const double a = norm * 3.14159265358979323846 / 180.0;
+        const double ca = std::cos(a);
+        const double sa = std::sin(a);
+
+        // Grow the canvas to the rotated bounding box so nothing is clipped.
+        int32_t nw = static_cast<int32_t>(std::ceil(w * std::abs(ca) + h * std::abs(sa)));
+        int32_t nh = static_cast<int32_t>(std::ceil(w * std::abs(sa) + h * std::abs(ca)));
+        nw = std::clamp(nw, 1, 1024);
+        nh = std::clamp(nh, 1, 1024);
+
+        auto rotated = winrt::IconMaster::DrawingContext(nw, nh);
+        rotated.Color(doc().context.Color());
+
+        const double cxOld = w / 2.0;
+        const double cyOld = h / 2.0;
+        const double cxNew = nw / 2.0;
+        const double cyNew = nh / 2.0;
+        for (int32_t dy = 0; dy < nh; ++dy)
+        {
+            for (int32_t dx = 0; dx < nw; ++dx)
+            {
+                // Map the destination pixel centre back into the source (inverse
+                // rotation) and sample the nearest source pixel; positive is CW.
+                const double rx = (dx + 0.5) - cxNew;
+                const double ry = (dy + 0.5) - cyNew;
+                const double srcX = cxOld + (rx * ca + ry * sa);
+                const double srcY = cyOld + (-rx * sa + ry * ca);
+                const int32_t sx = static_cast<int32_t>(std::floor(srcX));
+                const int32_t sy = static_cast<int32_t>(std::floor(srcY));
+                if (sx >= 0 && sx < w && sy >= 0 && sy < h)
+                {
+                    rotated.SetPixel(dx, dy, doc().context.GetPixel(sx, sy));
+                }
+            }
+        }
+
+        doc().context = rotated;
+        doc().hasSelection = false;
+        ResetTransient();
+        RebuildDisplay(); // keep the current zoom
     }
 
     void MainWindow::OnFlipHorizontal(IInspectable const&, RoutedEventArgs const&)
@@ -1080,6 +1136,33 @@ namespace winrt::IconMaster::implementation
     {
         Rotate90(false);
         if (auto s = StatusText()) { s.Text(L"Rotated a quarter turn left."); }
+    }
+
+    winrt::fire_and_forget MainWindow::OnRotateArbitrary(IInspectable const&, RoutedEventArgs const&)
+    {
+        auto lifetime = get_strong();
+        if (doc().context == nullptr)
+        {
+            co_return;
+        }
+        if (RotateDialog().XamlRoot() == nullptr)
+        {
+            RotateDialog().XamlRoot(this->Content().XamlRoot());
+        }
+        if (co_await RotateDialog().ShowAsync() != ContentDialogResult::Primary)
+        {
+            co_return;
+        }
+        const double deg = RotateAngle().Value();
+        if (std::isnan(deg))
+        {
+            co_return;
+        }
+        RotateArbitrary(deg);
+        if (auto s = StatusText())
+        {
+            s.Text(L"Rotated " + winrt::to_hstring(static_cast<int32_t>(std::lround(deg))) + L" degrees.");
+        }
     }
 
     winrt::fire_and_forget MainWindow::OnSaveAs(IInspectable const&, RoutedEventArgs const&)
