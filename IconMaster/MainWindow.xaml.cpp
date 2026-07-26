@@ -1172,11 +1172,11 @@ namespace winrt::IconMaster::implementation
             co_return;
         }
 
-        // Seed the pivot to the canvas centre each time the dialog opens.
+        // Seed the pivot to the canvas centre each time the dialog opens. The pivot
+        // may sit outside the image (any point is a valid centre of rotation), so the
+        // range is left symmetric rather than clamped to the image bounds.
         const int32_t w = doc().context.PixelWidth();
         const int32_t h = doc().context.PixelHeight();
-        RotatePivotX().Maximum(w);
-        RotatePivotY().Maximum(h);
         RotatePivotX().Value(w / 2.0);
         RotatePivotY().Value(h / 2.0);
 

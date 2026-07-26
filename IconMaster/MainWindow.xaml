@@ -489,9 +489,9 @@
                     <RadioButton x:Name="RotateKeep" Content="Keep canvas size" GroupName="rotmode" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <NumberBox x:Name="RotatePivotX" Header="Pivot X" Minimum="0"
+                    <NumberBox x:Name="RotatePivotX" Header="Pivot X" Minimum="-4096" Maximum="4096"
                                SpinButtonPlacementMode="Inline" />
-                    <NumberBox x:Name="RotatePivotY" Header="Pivot Y" Minimum="0"
+                    <NumberBox x:Name="RotatePivotY" Header="Pivot Y" Minimum="-4096" Maximum="4096"
                                SpinButtonPlacementMode="Inline" />
                 </StackPanel>
             </StackPanel>
