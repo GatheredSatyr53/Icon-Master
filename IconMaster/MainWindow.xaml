@@ -167,6 +167,33 @@
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE740;" FontSize="16" />
                     </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
+                <MenuFlyoutItem Text="Flip Horizontal" Click="OnFlipHorizontal">
+                    <MenuFlyoutItem.Icon>
+                        <PathIcon Data="M7,4 L2,8 L7,12 Z M9,4 L14,8 L9,12 Z M7.5,3 H8.5 V13 H7.5 Z" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Flip Vertical" Click="OnFlipVertical">
+                    <MenuFlyoutItem.Icon>
+                        <PathIcon Data="M4,7 L8,2 L12,7 Z M4,9 L8,14 L12,9 Z M3,7.5 H13 V8.5 H3 Z" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
+                <MenuFlyoutItem Text="Rotate 90&#xB0; Right" Click="OnRotateCW">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7A6;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Rotate 90&#xB0; Left" Click="OnRotateCCW">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7A7;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Rotate..." Click="OnRotateArbitrary">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE72C;" FontSize="16" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
             </MenuBarItem>
 
             <MenuBarItem Title="Help">
@@ -444,6 +471,29 @@
                DefaultButton="Primary">
             <StackPanel Spacing="8">
                 <local:SizeInput x:Name="ResizeDims" />
+            </StackPanel>
+        </ContentDialog>
+
+        <ContentDialog x:Name="RotateDialog"
+               Title="Rotate image"
+               PrimaryButtonText="Rotate"
+               CloseButtonText="Cancel"
+               DefaultButton="Primary">
+            <StackPanel Spacing="12">
+                <NumberBox x:Name="RotateAngle" Header="Angle (degrees, clockwise)"
+                           Minimum="-360" Maximum="360" SpinButtonPlacementMode="Inline"
+                           SmallChange="1" LargeChange="15" Value="45" />
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Canvas" />
+                    <RadioButton x:Name="RotateExpand" Content="Expand to fit" GroupName="rotmode" IsChecked="True" />
+                    <RadioButton x:Name="RotateKeep" Content="Keep canvas size" GroupName="rotmode" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <NumberBox x:Name="RotatePivotX" Header="Pivot X" Minimum="-4096" Maximum="4096"
+                               SpinButtonPlacementMode="Inline" />
+                    <NumberBox x:Name="RotatePivotY" Header="Pivot Y" Minimum="-4096" Maximum="4096"
+                               SpinButtonPlacementMode="Inline" />
+                </StackPanel>
             </StackPanel>
         </ContentDialog>
     </Grid>
