@@ -1057,7 +1057,7 @@ namespace winrt::IconMaster::implementation
         RebuildDisplay(); // keep the current zoom
     }
 
-    void MainWindow::RotateArbitrary(double degrees)
+    void MainWindow::RotateArbitrary(double degrees, bool keepSize, double px, double py)
     {
         if (doc().context == nullptr)
         {
@@ -1076,29 +1076,55 @@ namespace winrt::IconMaster::implementation
         const double ca = std::cos(a);
         const double sa = std::sin(a);
 
-        // Grow the canvas to the rotated bounding box so nothing is clipped.
-        int32_t nw = static_cast<int32_t>(std::ceil(w * std::abs(ca) + h * std::abs(sa)));
-        int32_t nh = static_cast<int32_t>(std::ceil(w * std::abs(sa) + h * std::abs(ca)));
+        // Where the source pivot lands in the destination, and the new size.
+        int32_t nw, nh;
+        double dpx, dpy;
+        if (keepSize)
+        {
+            // Same canvas; the pivot stays put and anything rotated off-canvas clips.
+            nw = w;
+            nh = h;
+            dpx = px;
+            dpy = py;
+        }
+        else
+        {
+            // Grow to the bounding box of the forward-rotated corners (positive = CW).
+            const double corners[4][2] = { {0.0, 0.0}, {static_cast<double>(w), 0.0},
+                                           {0.0, static_cast<double>(h)}, {static_cast<double>(w), static_cast<double>(h)} };
+            double minX = 0.0, minY = 0.0, maxX = 0.0, maxY = 0.0;
+            for (int32_t k = 0; k < 4; ++k)
+            {
+                const double rx = corners[k][0] - px;
+                const double ry = corners[k][1] - py;
+                const double fx = ca * rx - sa * ry;
+                const double fy = sa * rx + ca * ry;
+                if (k == 0 || fx < minX) { minX = fx; }
+                if (k == 0 || fx > maxX) { maxX = fx; }
+                if (k == 0 || fy < minY) { minY = fy; }
+                if (k == 0 || fy > maxY) { maxY = fy; }
+            }
+            nw = std::max(1, static_cast<int32_t>(std::ceil(maxX - minX)));
+            nh = std::max(1, static_cast<int32_t>(std::ceil(maxY - minY)));
+            dpx = -minX;
+            dpy = -minY;
+        }
         nw = std::clamp(nw, 1, 1024);
         nh = std::clamp(nh, 1, 1024);
 
         auto rotated = winrt::IconMaster::DrawingContext(nw, nh);
         rotated.Color(doc().context.Color());
 
-        const double cxOld = w / 2.0;
-        const double cyOld = h / 2.0;
-        const double cxNew = nw / 2.0;
-        const double cyNew = nh / 2.0;
         for (int32_t dy = 0; dy < nh; ++dy)
         {
             for (int32_t dx = 0; dx < nw; ++dx)
             {
-                // Map the destination pixel centre back into the source (inverse
-                // rotation) and sample the nearest source pixel; positive is CW.
-                const double rx = (dx + 0.5) - cxNew;
-                const double ry = (dy + 0.5) - cyNew;
-                const double srcX = cxOld + (rx * ca + ry * sa);
-                const double srcY = cyOld + (-rx * sa + ry * ca);
+                // Inverse-rotate the destination pixel centre about the pivot and
+                // sample the nearest source pixel.
+                const double rx = (dx + 0.5) - dpx;
+                const double ry = (dy + 0.5) - dpy;
+                const double srcX = px + (ca * rx + sa * ry);
+                const double srcY = py + (-sa * rx + ca * ry);
                 const int32_t sx = static_cast<int32_t>(std::floor(srcX));
                 const int32_t sy = static_cast<int32_t>(std::floor(srcY));
                 if (sx >= 0 && sx < w && sy >= 0 && sy < h)
@@ -1145,6 +1171,15 @@ namespace winrt::IconMaster::implementation
         {
             co_return;
         }
+
+        // Seed the pivot to the canvas centre each time the dialog opens.
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        RotatePivotX().Maximum(w);
+        RotatePivotY().Maximum(h);
+        RotatePivotX().Value(w / 2.0);
+        RotatePivotY().Value(h / 2.0);
+
         if (RotateDialog().XamlRoot() == nullptr)
         {
             RotateDialog().XamlRoot(this->Content().XamlRoot());
@@ -1153,12 +1188,20 @@ namespace winrt::IconMaster::implementation
         {
             co_return;
         }
+
         const double deg = RotateAngle().Value();
         if (std::isnan(deg))
         {
             co_return;
         }
-        RotateArbitrary(deg);
+        auto kc = RotateKeep().IsChecked();
+        const bool keepSize = kc && kc.Value();
+        double px = RotatePivotX().Value();
+        double py = RotatePivotY().Value();
+        if (std::isnan(px)) { px = w / 2.0; }
+        if (std::isnan(py)) { py = h / 2.0; }
+
+        RotateArbitrary(deg, keepSize, px, py);
         if (auto s = StatusText())
         {
             s.Text(L"Rotated " + winrt::to_hstring(static_cast<int32_t>(std::lround(deg))) + L" degrees.");

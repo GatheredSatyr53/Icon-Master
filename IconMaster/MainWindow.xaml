@@ -479,10 +479,21 @@
                PrimaryButtonText="Rotate"
                CloseButtonText="Cancel"
                DefaultButton="Primary">
-            <StackPanel Spacing="8">
+            <StackPanel Spacing="12">
                 <NumberBox x:Name="RotateAngle" Header="Angle (degrees, clockwise)"
                            Minimum="-360" Maximum="360" SpinButtonPlacementMode="Inline"
                            SmallChange="1" LargeChange="15" Value="45" />
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Canvas" />
+                    <RadioButton x:Name="RotateExpand" Content="Expand to fit" GroupName="rotmode" IsChecked="True" />
+                    <RadioButton x:Name="RotateKeep" Content="Keep canvas size" GroupName="rotmode" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <NumberBox x:Name="RotatePivotX" Header="Pivot X" Minimum="0"
+                               SpinButtonPlacementMode="Inline" />
+                    <NumberBox x:Name="RotatePivotY" Header="Pivot Y" Minimum="0"
+                               SpinButtonPlacementMode="Inline" />
+                </StackPanel>
             </StackPanel>
         </ContentDialog>
     </Grid>
