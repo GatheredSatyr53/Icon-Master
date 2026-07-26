@@ -974,6 +974,114 @@ namespace winrt::IconMaster::implementation
         RebuildDisplay();
     }
 
+    void MainWindow::FlipHorizontal()
+    {
+        if (doc().context == nullptr)
+        {
+            return;
+        }
+        PushUndo();
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        for (int32_t y = 0; y < h; ++y)
+        {
+            for (int32_t x = 0; x < w / 2; ++x)
+            {
+                const auto a = doc().context.GetPixel(x, y);
+                const auto b = doc().context.GetPixel(w - 1 - x, y);
+                doc().context.SetPixel(x, y, b);
+                doc().context.SetPixel(w - 1 - x, y, a);
+            }
+        }
+        doc().hasSelection = false;
+        ResetTransient();
+        Render();
+    }
+
+    void MainWindow::FlipVertical()
+    {
+        if (doc().context == nullptr)
+        {
+            return;
+        }
+        PushUndo();
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        for (int32_t y = 0; y < h / 2; ++y)
+        {
+            for (int32_t x = 0; x < w; ++x)
+            {
+                const auto a = doc().context.GetPixel(x, y);
+                const auto b = doc().context.GetPixel(x, h - 1 - y);
+                doc().context.SetPixel(x, y, b);
+                doc().context.SetPixel(x, h - 1 - y, a);
+            }
+        }
+        doc().hasSelection = false;
+        ResetTransient();
+        Render();
+    }
+
+    void MainWindow::Rotate90(bool clockwise)
+    {
+        if (doc().context == nullptr)
+        {
+            return;
+        }
+        PushUndo();
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+
+        // A quarter turn swaps the dimensions (w x h -> h x w).
+        auto rotated = winrt::IconMaster::DrawingContext(h, w);
+        rotated.Color(doc().context.Color());
+        for (int32_t y = 0; y < h; ++y)
+        {
+            for (int32_t x = 0; x < w; ++x)
+            {
+                const auto c = doc().context.GetPixel(x, y);
+                if (clockwise)
+                {
+                    rotated.SetPixel(h - 1 - y, x, c);
+                }
+                else
+                {
+                    rotated.SetPixel(y, w - 1 - x, c);
+                }
+            }
+        }
+
+        doc().context = rotated;
+        doc().hasSelection = false;
+        ResetTransient();
+        doc().zoom = FitZoom(std::max(w, h));
+        RebuildDisplay();
+    }
+
+    void MainWindow::OnFlipHorizontal(IInspectable const&, RoutedEventArgs const&)
+    {
+        FlipHorizontal();
+        if (auto s = StatusText()) { s.Text(L"Flipped horizontally."); }
+    }
+
+    void MainWindow::OnFlipVertical(IInspectable const&, RoutedEventArgs const&)
+    {
+        FlipVertical();
+        if (auto s = StatusText()) { s.Text(L"Flipped vertically."); }
+    }
+
+    void MainWindow::OnRotateCW(IInspectable const&, RoutedEventArgs const&)
+    {
+        Rotate90(true);
+        if (auto s = StatusText()) { s.Text(L"Rotated a quarter turn right."); }
+    }
+
+    void MainWindow::OnRotateCCW(IInspectable const&, RoutedEventArgs const&)
+    {
+        Rotate90(false);
+        if (auto s = StatusText()) { s.Text(L"Rotated a quarter turn left."); }
+    }
+
     winrt::fire_and_forget MainWindow::OnSaveAs(IInspectable const&, RoutedEventArgs const&)
     {
         namespace WGI = winrt::Windows::Graphics::Imaging;
