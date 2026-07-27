@@ -33,9 +33,18 @@ namespace winrt::IconMaster::implementation
 
     // Invoked when the application is launched.
     // param e: Details about the launch request and process.
-    void App::OnLaunched([[maybe_unused]] LaunchActivatedEventArgs const& e)
+    void App::OnLaunched(LaunchActivatedEventArgs const& e)
     {
-        window = make<MainWindow>();
+        auto mainWindow = make<MainWindow>();
+        window = mainWindow;
         window.Activate();
+
+        // A taskbar jump-list entry launches the app with an "open:<token>"
+        // argument; hand it to the window so it reopens that recent file.
+        const auto arguments = e.Arguments();
+        if (!arguments.empty())
+        {
+            winrt::get_self<MainWindow>(mainWindow)->OpenFromArgument(arguments);
+        }
     }
 }

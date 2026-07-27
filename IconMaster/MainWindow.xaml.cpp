@@ -12,6 +12,7 @@
 #include <winrt/Windows.Storage.AccessCache.h>
 #include <winrt/Windows.Storage.Pickers.h>
 #include <winrt/Windows.Storage.Streams.h>
+#include <winrt/Windows.UI.StartScreen.h>
 #include <microsoft.ui.xaml.window.h>
 #include <shobjidl_core.h>
 #include <robuffer.h>
@@ -113,6 +114,7 @@ namespace winrt::IconMaster::implementation
 
         RebuildDisplay();
         RebuildRecentMenu(); // populate from the persisted most-recently-used list
+        UpdateJumpListAsync(); // refresh the taskbar jump list from the same list
     }
 
     // ---- Tool selection -----------------------------------------------------
@@ -1409,6 +1411,7 @@ namespace winrt::IconMaster::implementation
         }
         mru.Add(file, path);
         RebuildRecentMenu();
+        UpdateJumpListAsync();
     }
 
     void MainWindow::RebuildRecentMenu()
@@ -1462,6 +1465,49 @@ namespace winrt::IconMaster::implementation
             co_return;
         }
         co_await LoadImageFileAsync(file);
+    }
+
+    void MainWindow::OpenFromArgument(winrt::hstring const& argument)
+    {
+        // Jump-list entries pass "open:<mru-token>".
+        std::wstring a{ argument };
+        const std::wstring prefix = L"open:";
+        if (a.rfind(prefix, 0) == 0)
+        {
+            OpenRecentByTokenAsync(winrt::hstring{ a.substr(prefix.size()) });
+        }
+    }
+
+    winrt::fire_and_forget MainWindow::UpdateJumpListAsync()
+    {
+        namespace SS = winrt::Windows::UI::StartScreen;
+        namespace AC = winrt::Windows::Storage::AccessCache;
+        auto lifetime = get_strong();
+
+        if (!SS::JumpList::IsSupported())
+        {
+            co_return;
+        }
+        auto jumpList = co_await SS::JumpList::LoadCurrentAsync();
+        jumpList.SystemGroupKind(SS::JumpListSystemGroupKind::None);
+        jumpList.Items().Clear();
+
+        auto entries = AC::StorageApplicationPermissions::MostRecentlyUsedList().Entries();
+        uint32_t shown = 0;
+        for (auto const& e : entries)
+        {
+            if (shown++ >= 10) { break; }
+            const winrt::hstring path = e.Metadata;
+            std::wstring p{ path };
+            const size_t slash = p.find_last_of(L"\\/");
+            const winrt::hstring name = (slash == std::wstring::npos) ? path : winrt::hstring{ p.substr(slash + 1) };
+
+            auto item = SS::JumpListItem::CreateWithArguments(winrt::hstring{ L"open:" } + e.Token, name.empty() ? path : name);
+            item.Description(path);
+            item.GroupName(L"Recent");
+            jumpList.Items().Append(item);
+        }
+        co_await jumpList.SaveAsync();
     }
 
     winrt::fire_and_forget MainWindow::OnSave(IInspectable const& sender, RoutedEventArgs const& args)
