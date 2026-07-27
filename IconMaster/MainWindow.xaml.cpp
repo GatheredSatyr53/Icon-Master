@@ -1432,13 +1432,8 @@ namespace winrt::IconMaster::implementation
         {
             if (shown++ >= 12) { break; }
             const winrt::hstring token = e.Token;
-            const winrt::hstring path = e.Metadata;
-            std::wstring p{ path };
-            const size_t slash = p.find_last_of(L"\\/");
-            const winrt::hstring name = (slash == std::wstring::npos) ? path : winrt::hstring{ p.substr(slash + 1) };
-
             MenuFlyoutItem item;
-            item.Text(name.empty() ? path : name);
+            item.Text(e.Metadata);
             item.Click([this, token](IInspectable const&, RoutedEventArgs const&) { OpenRecentByTokenAsync(token); });
             items.Append(item);
         }
