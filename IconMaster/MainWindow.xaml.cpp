@@ -1403,7 +1403,7 @@ namespace winrt::IconMaster::implementation
             std::vector<winrt::hstring> dup;
             for (auto const& e : mru.Entries())
             {
-                if (e.Metadata() == path) { dup.push_back(e.Token()); }
+                if (e.Metadata == path) { dup.push_back(e.Token); }
             }
             for (auto const& t : dup) { mru.Remove(t); }
         }
@@ -1431,8 +1431,8 @@ namespace winrt::IconMaster::implementation
         for (auto const& e : entries)
         {
             if (shown++ >= 12) { break; }
-            const winrt::hstring token = e.Token();
-            const winrt::hstring path = e.Metadata();
+            const winrt::hstring token = e.Token;
+            const winrt::hstring path = e.Metadata;
             std::wstring p{ path };
             const size_t slash = p.find_last_of(L"\\/");
             const winrt::hstring name = (slash == std::wstring::npos) ? path : winrt::hstring{ p.substr(slash + 1) };
