@@ -13,6 +13,8 @@ namespace winrt::IconMaster::implementation
     {
         MainWindow();
 
+        void OpenFromArgument(winrt::hstring const& argument); // reopen a file from a jump-list "open:<token>" launch argument
+
         void OnToolSelected(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnBrushSizeChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const & args);
         void OnHardnessChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const & args);
@@ -66,6 +68,11 @@ namespace winrt::IconMaster::implementation
         winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension); // multi-size ICO
         winrt::Windows::Foundation::IAsyncAction WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId); // default bitmap image
         winrt::Windows::Foundation::IAsyncAction WriteIcoAsync(winrt::Windows::Storage::StorageFile file); // multi-size ICO
+        winrt::Windows::Foundation::IAsyncAction LoadImageFileAsync(winrt::Windows::Storage::StorageFile file); // decode into a new document
+        void AddToRecent(winrt::Windows::Storage::StorageFile const& file); // register in the MRU + refresh menu
+        void RebuildRecentMenu();                                          // rebuild the File > Recent Files submenu
+        winrt::fire_and_forget OpenRecentByTokenAsync(winrt::hstring token); // reopen an MRU entry by its token
+        winrt::fire_and_forget UpdateJumpListAsync();                        // refresh the taskbar jump list from the MRU
 
         // Undo/redo via full-canvas snapshots.
         struct Snapshot { int32_t w; int32_t h; std::vector<winrt::Windows::UI::Color> pixels; };

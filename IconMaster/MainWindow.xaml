@@ -54,6 +54,12 @@
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xED25;" FontSize="16" />
                     </MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
+                <MenuFlyoutSubItem x:Name="RecentMenu" Text="Recent Files">
+                    <MenuFlyoutSubItem.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE81C;" FontSize="16" />
+                    </MenuFlyoutSubItem.Icon>
+                </MenuFlyoutSubItem>
+                <MenuFlyoutSeparator/>
                 <MenuFlyoutItem Text="Save..." Click="OnSave">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="S"/>

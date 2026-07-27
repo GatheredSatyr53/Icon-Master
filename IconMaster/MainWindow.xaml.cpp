@@ -9,8 +9,10 @@
 #include <winrt/Windows.Graphics.h>
 #include <winrt/Windows.Graphics.Imaging.h>
 #include <winrt/Windows.Storage.h>
+#include <winrt/Windows.Storage.AccessCache.h>
 #include <winrt/Windows.Storage.Pickers.h>
 #include <winrt/Windows.Storage.Streams.h>
+#include <winrt/Windows.UI.StartScreen.h>
 #include <microsoft.ui.xaml.window.h>
 #include <shobjidl_core.h>
 #include <robuffer.h>
@@ -111,6 +113,8 @@ namespace winrt::IconMaster::implementation
         m_updatingTabs = false;
 
         RebuildDisplay();
+        RebuildRecentMenu(); // populate from the persisted most-recently-used list
+        UpdateJumpListAsync(); // refresh the taskbar jump list from the same list
     }
 
     // ---- Tool selection -----------------------------------------------------
@@ -1266,6 +1270,7 @@ namespace winrt::IconMaster::implementation
         doc().associatedFile.isIco = isIco;
         Tabs().TabItems().GetAt(m_active).as<TabViewItem>().Header(winrt::box_value(file.Name()));
         StatusText().Text(L"Saved " + filePath);
+        AddToRecent(file);
     }
 
     winrt::fire_and_forget MainWindow::OnSaveCopy(IInspectable const& sender, RoutedEventArgs const& args)
@@ -1345,6 +1350,13 @@ namespace winrt::IconMaster::implementation
             co_return;
         }
 
+        co_await LoadImageFileAsync(file);
+    }
+
+    winrt::Windows::Foundation::IAsyncAction MainWindow::LoadImageFileAsync(winrt::Windows::Storage::StorageFile file)
+    {
+        auto lifetime = get_strong();
+
         auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::Read);
         auto decoder = co_await winrt::Windows::Graphics::Imaging::BitmapDecoder::CreateAsync(stream);
         const uint32_t w = decoder.PixelWidth();
@@ -1378,6 +1390,124 @@ namespace winrt::IconMaster::implementation
         const int32_t fit = static_cast<int32_t>(512u / std::max(w, h));
         AddDocument(context, file.Name(), fit);
         StatusText().Text(L"Opened " + file.Name());
+        AddToRecent(file);
+    }
+
+    void MainWindow::AddToRecent(winrt::Windows::Storage::StorageFile const& file)
+    {
+        namespace AC = winrt::Windows::Storage::AccessCache;
+        auto mru = AC::StorageApplicationPermissions::MostRecentlyUsedList();
+        const winrt::hstring path = file.Path();
+
+        // De-duplicate by path so re-opening a file just bumps its recency.
+        if (!path.empty())
+        {
+            std::vector<winrt::hstring> dup;
+            for (auto const& e : mru.Entries())
+            {
+                if (e.Metadata == path) { dup.push_back(e.Token); }
+            }
+            for (auto const& t : dup) { mru.Remove(t); }
+        }
+        mru.Add(file, path);
+        RebuildRecentMenu();
+        UpdateJumpListAsync();
+    }
+
+    void MainWindow::RebuildRecentMenu()
+    {
+        namespace AC = winrt::Windows::Storage::AccessCache;
+        auto items = RecentMenu().Items();
+        items.Clear();
+
+        auto entries = AC::StorageApplicationPermissions::MostRecentlyUsedList().Entries();
+        if (entries.Size() == 0)
+        {
+            MenuFlyoutItem empty;
+            empty.Text(L"(No recent files)");
+            empty.IsEnabled(false);
+            items.Append(empty);
+            return;
+        }
+
+        uint32_t shown = 0;
+        for (auto const& e : entries)
+        {
+            if (shown++ >= 12) { break; }
+            const winrt::hstring token = e.Token;
+            MenuFlyoutItem item;
+            item.Text(e.Metadata);
+            item.Click([this, token](IInspectable const&, RoutedEventArgs const&) { OpenRecentByTokenAsync(token); });
+            items.Append(item);
+        }
+    }
+
+    winrt::fire_and_forget MainWindow::OpenRecentByTokenAsync(winrt::hstring token)
+    {
+        auto lifetime = get_strong();
+        namespace AC = winrt::Windows::Storage::AccessCache;
+        auto mru = AC::StorageApplicationPermissions::MostRecentlyUsedList();
+
+        winrt::Windows::Storage::StorageFile file{ nullptr };
+        try
+        {
+            file = co_await mru.GetFileAsync(token);
+        }
+        catch (winrt::hresult_error const&)
+        {
+            mru.Remove(token);
+            RebuildRecentMenu();
+            StatusText().Text(L"That file is no longer available.");
+            co_return;
+        }
+        if (file == nullptr)
+        {
+            co_return;
+        }
+        co_await LoadImageFileAsync(file);
+    }
+
+    void MainWindow::OpenFromArgument(winrt::hstring const& argument)
+    {
+        // Jump-list entries pass "open:<mru-token>".
+        std::wstring a{ argument };
+        const std::wstring prefix = L"open:";
+        if (a.rfind(prefix, 0) == 0)
+        {
+            OpenRecentByTokenAsync(winrt::hstring{ a.substr(prefix.size()) });
+        }
+    }
+
+    winrt::fire_and_forget MainWindow::UpdateJumpListAsync()
+    {
+        namespace SS = winrt::Windows::UI::StartScreen;
+        namespace AC = winrt::Windows::Storage::AccessCache;
+        auto lifetime = get_strong();
+
+        if (!SS::JumpList::IsSupported())
+        {
+            co_return;
+        }
+        auto jumpList = co_await SS::JumpList::LoadCurrentAsync();
+        jumpList.SystemGroupKind(SS::JumpListSystemGroupKind::None);
+        jumpList.Items().Clear();
+
+        auto entries = AC::StorageApplicationPermissions::MostRecentlyUsedList().Entries();
+        uint32_t shown = 0;
+        for (auto const& e : entries)
+        {
+            if (shown++ >= 10) { break; }
+            const winrt::hstring path = e.Metadata;
+            std::wstring p{ path };
+            const size_t slash = p.find_last_of(L"\\/");
+            const winrt::hstring name = (slash == std::wstring::npos) ? path : winrt::hstring{ p.substr(slash + 1) };
+
+            auto item = SS::JumpListItem::CreateWithArguments(winrt::hstring{ L"open:" } + e.Token, name.empty() ? path : name);
+            item.Description(path);
+            item.GroupName(L"Recent");
+            jumpList.Items().Append(item);
+        }
+        co_await jumpList.SaveAsync();
     }
 
     winrt::fire_and_forget MainWindow::OnSave(IInspectable const& sender, RoutedEventArgs const& args)
