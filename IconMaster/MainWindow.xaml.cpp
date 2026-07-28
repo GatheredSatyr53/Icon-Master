@@ -36,6 +36,22 @@ namespace
 {
     constexpr winrt::Windows::UI::Color kTransparent{ 0x00, 0x00, 0x00, 0x00 };
 
+    // Walk up from a tapped element to the swatch Border that carries the
+    // "#AARRGGBB" hex in its Tag. Returns an empty string if the tap did not
+    // land on a swatch (e.g. empty space inside the ItemsRepeater).
+    winrt::hstring SwatchHexFromSource(winrt::Windows::Foundation::IInspectable const& source)
+    {
+        auto element = source.try_as<winrt::Microsoft::UI::Xaml::FrameworkElement>();
+        while (element)
+        {
+            const auto hex = winrt::unbox_value_or<winrt::hstring>(element.Tag(), L"");
+            if (!hex.empty()) { return hex; }
+            element = winrt::Microsoft::UI::Xaml::Media::VisualTreeHelper::GetParent(element)
+                          .try_as<winrt::Microsoft::UI::Xaml::FrameworkElement>();
+        }
+        return L"";
+    }
+
     // Source-over composite of src (scaled by coverage) onto dst.
     winrt::Windows::UI::Color OverBlend(winrt::Windows::UI::Color const& src, double coverage, winrt::Windows::UI::Color const& dst)
     {
@@ -113,6 +129,7 @@ namespace winrt::IconMaster::implementation
         m_updatingTabs = false;
 
         LoadPalette();       // restore the custom palette from the previous session
+        PaletteRepeater().ItemsSource(m_paletteItems);
         RebuildPaletteUI();
 
         RebuildDisplay();
@@ -253,54 +270,47 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::RebuildPaletteUI()
     {
-        auto rows = PaletteRows();
-        rows.Children().Clear();
+        // The swatches are laid out by a WrapLayout inside PaletteRepeater; we only
+        // have to keep the bound collection in sync with m_palette. ElementPrepared
+        // fills in each realized swatch's colour on demand.
+        m_paletteItems.Clear();
+        for (auto const& color : m_palette)
+        {
+            m_paletteItems.Append(winrt::box_value(ColorToHex(color)));
+        }
 
         PaletteEmptyHint().Visibility(m_palette.empty()
             ? winrt::Microsoft::UI::Xaml::Visibility::Visible
             : winrt::Microsoft::UI::Xaml::Visibility::Collapsed);
-
-        StackPanel currentRow{ nullptr };
-        int32_t inRow = k_paletteRowCount; // force a new row on the first swatch
-        for (auto const& color : m_palette)
-        {
-            if (inRow >= k_paletteRowCount)
-            {
-                currentRow = StackPanel();
-                currentRow.Orientation(Orientation::Horizontal);
-                currentRow.Spacing(4);
-                rows.Children().Append(currentRow);
-                inRow = 0;
-            }
-
-            const auto hex = ColorToHex(color);
-
-            Button swatch;
-            swatch.Tag(winrt::box_value(hex));
-            swatch.Padding(winrt::Microsoft::UI::Xaml::ThicknessHelper::FromUniformLength(0));
-            swatch.Click({ this, &MainWindow::OnSwatchClick });
-            swatch.RightTapped({ this, &MainWindow::OnPaletteSwatchRightTapped });
-            ToolTipService::SetToolTip(swatch, winrt::box_value(hex));
-
-            Border cell;
-            cell.Width(22);
-            cell.Height(22);
-            cell.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{ color });
-            cell.BorderBrush(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{
-                winrt::Windows::UI::Color{ 0x40, 0x80, 0x80, 0x80 } });
-            cell.BorderThickness(winrt::Microsoft::UI::Xaml::ThicknessHelper::FromUniformLength(1));
-            swatch.Content(cell);
-
-            currentRow.Children().Append(swatch);
-            ++inRow;
-        }
     }
 
-    void MainWindow::OnPaletteSwatchRightTapped(IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::RightTappedRoutedEventArgs const&)
+    void MainWindow::OnPaletteElementPrepared(winrt::Microsoft::UI::Xaml::Controls::ItemsRepeater const&, winrt::Microsoft::UI::Xaml::Controls::ItemsRepeaterElementPreparedEventArgs const& args)
     {
-        auto button = sender.try_as<Button>();
-        if (!button) { return; }
-        const auto hex = winrt::unbox_value_or<winrt::hstring>(button.Tag(), L"");
+        const auto index = args.Index();
+        if (index < 0 || static_cast<size_t>(index) >= m_palette.size()) { return; }
+
+        const auto color = m_palette[static_cast<size_t>(index)];
+        const auto hex = ColorToHex(color);
+
+        auto swatch = args.Element().try_as<Border>();
+        if (!swatch) { return; }
+
+        swatch.Tag(winrt::box_value(hex));
+        swatch.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{ color });
+        ToolTipService::SetToolTip(swatch, winrt::box_value(hex));
+    }
+
+    void MainWindow::OnPaletteSwatchTapped(IInspectable const&, winrt::Microsoft::UI::Xaml::Input::TappedRoutedEventArgs const& args)
+    {
+        const auto hex = SwatchHexFromSource(args.OriginalSource());
+        if (hex.empty()) { return; }
+        ColorPickerControl().Color(HexToColor(std::wstring_view{ hex }));
+    }
+
+    void MainWindow::OnPaletteSwatchRightTapped(IInspectable const&, winrt::Microsoft::UI::Xaml::Input::RightTappedRoutedEventArgs const& args)
+    {
+        const auto hex = SwatchHexFromSource(args.OriginalSource());
+        if (hex.empty()) { return; }
         const auto target = HexToColor(std::wstring_view{ hex });
 
         for (auto it = m_palette.begin(); it != m_palette.end(); ++it)

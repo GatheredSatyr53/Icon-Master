@@ -80,7 +80,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <PreprocessorDefinitions>_WINRT_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>%(AdditionalOptions) /bigobj /await</AdditionalOptions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -126,6 +126,12 @@
     <ClInclude Include="RectangleTool.h" />
     <ClInclude Include="EllipseTool.h" />
     <ClInclude Include="StringFormatConverter.h" />
+    <ClInclude Include="typehelpers.h" />
+    <ClInclude Include="UvBounds.h" />
+    <ClInclude Include="UvMeasure.h" />
+    <ClInclude Include="WrapItem.h" />
+    <ClInclude Include="WrapLayout.h" />
+    <ClInclude Include="WrapLayoutState.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -150,12 +156,16 @@
     <ClCompile Include="EllipseTool.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
     <ClCompile Include="StringFormatConverter.cpp" />
+    <ClCompile Include="WrapLayout.cpp" />
+    <ClCompile Include="WrapLayoutState.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Midl Include="Editor.idl" />
     <Midl Include="MainWindow.idl" />
     <Midl Include="SizeInput.idl" />
     <Midl Include="StringFormatConverter.idl" />
+    <Midl Include="WrapLayout.idl" />
+    <Midl Include="WrapLayoutState.idl" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
