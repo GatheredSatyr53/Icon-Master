@@ -414,6 +414,37 @@
                          ColorSpectrumShape="Box"
                          ColorChanged="OnColorChanged"
                          />
+
+                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,4" />
+
+                <Grid>
+                    <TextBlock Text="Custom palette" Style="{StaticResource CaptionTextBlockStyle}"
+                               VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right">
+                        <Button Click="OnPaletteAdd" Padding="4" ToolTipService.ToolTip="Add current colour">
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE710;" FontSize="14" />
+                        </Button>
+                        <Button Click="OnPaletteFromImage" Padding="4" ToolTipService.ToolTip="Extract from image">
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xEB9F;" FontSize="14" />
+                        </Button>
+                        <Button Click="OnPaletteLoad" Padding="4" ToolTipService.ToolTip="Load palette…">
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8E5;" FontSize="14" />
+                        </Button>
+                        <Button Click="OnPaletteSave" Padding="4" ToolTipService.ToolTip="Save palette…">
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74E;" FontSize="14" />
+                        </Button>
+                        <Button Click="OnPaletteClear" Padding="4" ToolTipService.ToolTip="Clear palette">
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74D;" FontSize="14" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel x:Name="PaletteRows" Spacing="4" />
+                <TextBlock x:Name="PaletteEmptyHint"
+                           Text="No custom colours yet. Use + to add the current colour, or extract from the image."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
             </StackPanel>
         </Border>
 
