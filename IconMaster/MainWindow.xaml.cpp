@@ -128,6 +128,16 @@ namespace winrt::IconMaster::implementation
         }
         m_updatingTabs = false;
 
+        // Seed the fixed preset palette (same repeater/style as the custom one).
+        for (auto const& hex : {
+                L"#FF000000", L"#FF808080", L"#FFFFFFFF", L"#FFE81123",
+                L"#FFFF8C00", L"#FFFFF100", L"#FF107C10", L"#FF0078D7",
+                L"#FF00B7C3", L"#FF881798", L"#FF8E562E", L"#00000000" })
+        {
+            m_standardItems.Append(winrt::box_value(winrt::hstring{ hex }));
+        }
+        StandardPaletteRepeater().ItemsSource(m_standardItems);
+
         LoadPalette();       // restore the custom palette from the previous session
         PaletteRepeater().ItemsSource(m_paletteItems);
         RebuildPaletteUI();
@@ -194,28 +204,6 @@ namespace winrt::IconMaster::implementation
     }
 
     // ---- Colour -------------------------------------------------------------
-
-    void MainWindow::OnSwatchClick(IInspectable const& sender, RoutedEventArgs const&)
-    {
-        auto button = sender.as<Button>();
-        auto tag = winrt::unbox_value_or<winrt::hstring>(button.Tag(), L"#FF000000");
-
-        std::wstring text{ tag };
-        if (!text.empty() && text.front() == L'#')
-        {
-            text.erase(0, 1);
-        }
-
-        const uint32_t argb = static_cast<uint32_t>(std::wcstoul(text.c_str(), nullptr, 16));
-        const winrt::Windows::UI::Color color{
-            static_cast<uint8_t>((argb >> 24) & 0xFF),
-            static_cast<uint8_t>((argb >> 16) & 0xFF),
-            static_cast<uint8_t>((argb >> 8) & 0xFF),
-            static_cast<uint8_t>(argb & 0xFF)
-        };
-
-        ColorPickerControl().Color(color);
-    }
 
     void MainWindow::OnColorChanged(ColorPicker const&, ColorChangedEventArgs const& args)
     {
@@ -284,20 +272,45 @@ namespace winrt::IconMaster::implementation
             : winrt::Microsoft::UI::Xaml::Visibility::Collapsed);
     }
 
-    void MainWindow::OnPaletteElementPrepared(winrt::Microsoft::UI::Xaml::Controls::ItemsRepeater const&, winrt::Microsoft::UI::Xaml::Controls::ItemsRepeaterElementPreparedEventArgs const& args)
+    void MainWindow::OnPaletteElementPrepared(winrt::Microsoft::UI::Xaml::Controls::ItemsRepeater const& sender, winrt::Microsoft::UI::Xaml::Controls::ItemsRepeaterElementPreparedEventArgs const& args)
     {
-        const auto index = args.Index();
-        if (index < 0 || static_cast<size_t>(index) >= m_palette.size()) { return; }
-
-        const auto color = m_palette[static_cast<size_t>(index)];
-        const auto hex = ColorToHex(color);
-
         auto swatch = args.Element().try_as<Border>();
         if (!swatch) { return; }
 
+        // Read the swatch colour from whichever repeater raised the event (standard
+        // or custom), so both share one appearance and one set of handlers.
+        auto source = sender.ItemsSourceView();
+        const auto index = args.Index();
+        if (source == nullptr || index < 0 || index >= source.Count()) { return; }
+
+        const auto hex = winrt::unbox_value_or<winrt::hstring>(source.GetAt(index), L"");
+        const auto color = HexToColor(std::wstring_view{ hex });
+
         swatch.Tag(winrt::box_value(hex));
-        swatch.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{ color });
         ToolTipService::SetToolTip(swatch, winrt::box_value(hex));
+
+        // A uniform 1px border keeps light and transparent swatches visible.
+        swatch.BorderBrush(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{
+            winrt::Windows::UI::Color{ 0x60, 0x80, 0x80, 0x80 } });
+        swatch.BorderThickness(winrt::Microsoft::UI::Xaml::ThicknessHelper::FromUniformLength(1));
+
+        if (color.A == 0)
+        {
+            // Fully transparent: no fill, show the "no colour" glyph.
+            swatch.Background(nullptr);
+            winrt::Microsoft::UI::Xaml::Controls::TextBlock glyph;
+            glyph.Text(L"");
+            glyph.FontFamily(winrt::Microsoft::UI::Xaml::Media::FontFamily{ L"Segoe MDL2 Assets" });
+            glyph.FontSize(12);
+            glyph.HorizontalAlignment(winrt::Microsoft::UI::Xaml::HorizontalAlignment::Center);
+            glyph.VerticalAlignment(winrt::Microsoft::UI::Xaml::VerticalAlignment::Center);
+            swatch.Child(glyph);
+        }
+        else
+        {
+            swatch.Child(nullptr);
+            swatch.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{ color });
+        }
     }
 
     void MainWindow::OnPaletteSwatchTapped(IInspectable const&, winrt::Microsoft::UI::Xaml::Input::TappedRoutedEventArgs const& args)

@@ -18,7 +18,6 @@ namespace winrt::IconMaster::implementation
         void OnToolSelected(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnBrushSizeChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const & args);
         void OnHardnessChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const & args);
-        void OnSwatchClick(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnColorChanged(winrt::Microsoft::UI::Xaml::Controls::ColorPicker const& sender, winrt::Microsoft::UI::Xaml::Controls::ColorChangedEventArgs const& args);
 
         // Custom palette.
@@ -241,6 +240,9 @@ namespace winrt::IconMaster::implementation
         // User-managed custom palette (persisted between sessions).
         std::vector<winrt::Windows::UI::Color> m_palette;
         winrt::Windows::Foundation::Collections::IObservableVector<winrt::Windows::Foundation::IInspectable> m_paletteItems{
+            winrt::single_threaded_observable_vector<winrt::Windows::Foundation::IInspectable>() };
+        // Fixed preset swatches, shown with the same repeater/style as the custom palette.
+        winrt::Windows::Foundation::Collections::IObservableVector<winrt::Windows::Foundation::IInspectable> m_standardItems{
             winrt::single_threaded_observable_vector<winrt::Windows::Foundation::IInspectable>() };
         static constexpr size_t k_maxPalette = 96;         // hard cap on stored swatches
 };
