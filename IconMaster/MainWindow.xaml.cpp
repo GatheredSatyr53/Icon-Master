@@ -296,15 +296,29 @@ namespace winrt::IconMaster::implementation
 
         if (color.A == 0)
         {
-            // Fully transparent: no fill, show the "no colour" glyph.
-            swatch.Background(nullptr);
-            winrt::Microsoft::UI::Xaml::Controls::TextBlock glyph;
-            glyph.Text(L"");
-            glyph.FontFamily(winrt::Microsoft::UI::Xaml::Media::FontFamily{ L"Segoe MDL2 Assets" });
-            glyph.FontSize(12);
-            glyph.HorizontalAlignment(winrt::Microsoft::UI::Xaml::HorizontalAlignment::Center);
-            glyph.VerticalAlignment(winrt::Microsoft::UI::Xaml::VerticalAlignment::Center);
-            swatch.Child(glyph);
+            // Fully transparent: show a 2x2 checkerboard, matching how the canvas
+            // renders transparency, instead of a fill.
+            swatch.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{
+                winrt::Windows::UI::Color{ 0xFF, 0xFF, 0xFF, 0xFF } });
+
+            Grid checker;
+            checker.ColumnDefinitions().Append(winrt::Microsoft::UI::Xaml::Controls::ColumnDefinition{});
+            checker.ColumnDefinitions().Append(winrt::Microsoft::UI::Xaml::Controls::ColumnDefinition{});
+            checker.RowDefinitions().Append(winrt::Microsoft::UI::Xaml::Controls::RowDefinition{});
+            checker.RowDefinitions().Append(winrt::Microsoft::UI::Xaml::Controls::RowDefinition{});
+
+            auto grayCell = [](int32_t row, int32_t col)
+            {
+                Border cell;
+                cell.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{
+                    winrt::Windows::UI::Color{ 0xFF, 0xC0, 0xC0, 0xC0 } });
+                Grid::SetRow(cell, row);
+                Grid::SetColumn(cell, col);
+                return cell;
+            };
+            checker.Children().Append(grayCell(0, 0));
+            checker.Children().Append(grayCell(1, 1));
+            swatch.Child(checker);
         }
         else
         {
