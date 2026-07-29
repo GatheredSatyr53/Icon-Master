@@ -18,8 +18,17 @@ namespace winrt::IconMaster::implementation
         void OnToolSelected(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnBrushSizeChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const & args);
         void OnHardnessChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const & args);
-        void OnSwatchClick(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnColorChanged(winrt::Microsoft::UI::Xaml::Controls::ColorPicker const& sender, winrt::Microsoft::UI::Xaml::Controls::ColorChangedEventArgs const& args);
+
+        // Custom palette.
+        void OnPaletteAdd(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnPaletteFromImage(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnPaletteClear(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        winrt::fire_and_forget OnPaletteSave(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        winrt::fire_and_forget OnPaletteLoad(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnPaletteSwatchTapped(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::TappedRoutedEventArgs const& args);
+        void OnPaletteSwatchRightTapped(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::RightTappedRoutedEventArgs const& args);
+        void OnPaletteElementPrepared(winrt::Microsoft::UI::Xaml::Controls::ItemsRepeater const& sender, winrt::Microsoft::UI::Xaml::Controls::ItemsRepeaterElementPreparedEventArgs const& args);
         void OnZoomIn(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnZoomOut(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnCanvasPointerPressed(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
@@ -73,6 +82,14 @@ namespace winrt::IconMaster::implementation
         void RebuildRecentMenu();                                          // rebuild the File > Recent Files submenu
         winrt::fire_and_forget OpenRecentByTokenAsync(winrt::hstring token); // reopen an MRU entry by its token
         winrt::fire_and_forget UpdateJumpListAsync();                        // refresh the taskbar jump list from the MRU
+
+        // Custom palette helpers.
+        void AddPaletteColor(winrt::Windows::UI::Color const& color); // append if not already present
+        void RebuildPaletteUI();                                      // rebuild the swatch rows from m_palette
+        void SavePalette();                                           // persist m_palette to LocalSettings
+        void LoadPalette();                                           // load m_palette from LocalSettings
+        static winrt::hstring ColorToHex(winrt::Windows::UI::Color const& c); // "#AARRGGBB"
+        static winrt::Windows::UI::Color HexToColor(std::wstring_view hex);   // parse "#AARRGGBB"
 
         // Undo/redo via full-canvas snapshots.
         struct Snapshot { int32_t w; int32_t h; std::vector<winrt::Windows::UI::Color> pixels; };
@@ -219,6 +236,15 @@ namespace winrt::IconMaster::implementation
         winrt::IconMaster::IShapeTool m_currentShape{ nullptr };
         winrt::Microsoft::UI::Xaml::Media::Imaging::WriteableBitmap m_display{ nullptr };
         std::vector<uint8_t> m_baseCache; // last rendered base (no hover), for fast hover refresh
+
+        // User-managed custom palette (persisted between sessions).
+        std::vector<winrt::Windows::UI::Color> m_palette;
+        winrt::Windows::Foundation::Collections::IObservableVector<winrt::Windows::Foundation::IInspectable> m_paletteItems{
+            winrt::single_threaded_observable_vector<winrt::Windows::Foundation::IInspectable>() };
+        // Fixed preset swatches, shown with the same repeater/style as the custom palette.
+        winrt::Windows::Foundation::Collections::IObservableVector<winrt::Windows::Foundation::IInspectable> m_standardItems{
+            winrt::single_threaded_observable_vector<winrt::Windows::Foundation::IInspectable>() };
+        static constexpr size_t k_maxPalette = 96;         // hard cap on stored swatches
 };
 }
 

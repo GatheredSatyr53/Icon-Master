@@ -1,0 +1,7 @@
+namespace IconMaster
+{
+    [default_interface]
+    runtimeclass WrapLayoutState
+    {
+    }
+}

@@ -2,6 +2,7 @@
 
 #include "App.xaml.g.h"
 #include "StringFormatConverter.h"
+#include "WrapLayout.h"        // used as a custom ItemsRepeater layout in MainWindow.xaml
 
 namespace winrt::IconMaster::implementation
 {

@@ -36,6 +36,22 @@ namespace
 {
     constexpr winrt::Windows::UI::Color kTransparent{ 0x00, 0x00, 0x00, 0x00 };
 
+    // Walk up from a tapped element to the swatch Border that carries the
+    // "#AARRGGBB" hex in its Tag. Returns an empty string if the tap did not
+    // land on a swatch (e.g. empty space inside the ItemsRepeater).
+    winrt::hstring SwatchHexFromSource(winrt::Windows::Foundation::IInspectable const& source)
+    {
+        auto element = source.try_as<winrt::Microsoft::UI::Xaml::FrameworkElement>();
+        while (element)
+        {
+            const auto hex = winrt::unbox_value_or<winrt::hstring>(element.Tag(), L"");
+            if (!hex.empty()) { return hex; }
+            element = winrt::Microsoft::UI::Xaml::Media::VisualTreeHelper::GetParent(element)
+                          .try_as<winrt::Microsoft::UI::Xaml::FrameworkElement>();
+        }
+        return L"";
+    }
+
     // Source-over composite of src (scaled by coverage) onto dst.
     winrt::Windows::UI::Color OverBlend(winrt::Windows::UI::Color const& src, double coverage, winrt::Windows::UI::Color const& dst)
     {
@@ -112,6 +128,20 @@ namespace winrt::IconMaster::implementation
         }
         m_updatingTabs = false;
 
+        // Seed the fixed preset palette (same repeater/style as the custom one).
+        for (auto const& hex : {
+                L"#FF000000", L"#FF808080", L"#FFFFFFFF", L"#FFE81123",
+                L"#FFFF8C00", L"#FFFFF100", L"#FF107C10", L"#FF0078D7",
+                L"#FF00B7C3", L"#FF881798", L"#FF8E562E", L"#00000000" })
+        {
+            m_standardItems.Append(winrt::box_value(winrt::hstring{ hex }));
+        }
+        StandardPaletteRepeater().ItemsSource(m_standardItems);
+
+        LoadPalette();       // restore the custom palette from the previous session
+        PaletteRepeater().ItemsSource(m_paletteItems);
+        RebuildPaletteUI();
+
         RebuildDisplay();
         RebuildRecentMenu(); // populate from the persisted most-recently-used list
         UpdateJumpListAsync(); // refresh the taskbar jump list from the same list
@@ -175,28 +205,6 @@ namespace winrt::IconMaster::implementation
 
     // ---- Colour -------------------------------------------------------------
 
-    void MainWindow::OnSwatchClick(IInspectable const& sender, RoutedEventArgs const&)
-    {
-        auto button = sender.as<Button>();
-        auto tag = winrt::unbox_value_or<winrt::hstring>(button.Tag(), L"#FF000000");
-
-        std::wstring text{ tag };
-        if (!text.empty() && text.front() == L'#')
-        {
-            text.erase(0, 1);
-        }
-
-        const uint32_t argb = static_cast<uint32_t>(std::wcstoul(text.c_str(), nullptr, 16));
-        const winrt::Windows::UI::Color color{
-            static_cast<uint8_t>((argb >> 24) & 0xFF),
-            static_cast<uint8_t>((argb >> 16) & 0xFF),
-            static_cast<uint8_t>((argb >> 8) & 0xFF),
-            static_cast<uint8_t>(argb & 0xFF)
-        };
-
-        ColorPickerControl().Color(color);
-    }
-
     void MainWindow::OnColorChanged(ColorPicker const&, ColorChangedEventArgs const& args)
     {
         if (doc().context == nullptr || m_suppressColorSync)
@@ -204,6 +212,318 @@ namespace winrt::IconMaster::implementation
             return;
         }
         doc().context.Color(args.NewColor());
+    }
+
+    // ---- Custom palette -----------------------------------------------------
+
+    winrt::hstring MainWindow::ColorToHex(winrt::Windows::UI::Color const& c)
+    {
+        wchar_t buffer[10];
+        swprintf_s(buffer, L"#%02X%02X%02X%02X", c.A, c.R, c.G, c.B);
+        return winrt::hstring{ buffer };
+    }
+
+    winrt::Windows::UI::Color MainWindow::HexToColor(std::wstring_view hex)
+    {
+        std::wstring text{ hex };
+        if (!text.empty() && text.front() == L'#')
+        {
+            text.erase(0, 1);
+        }
+        const uint32_t argb = static_cast<uint32_t>(std::wcstoul(text.c_str(), nullptr, 16));
+        return winrt::Windows::UI::Color{
+            static_cast<uint8_t>((argb >> 24) & 0xFF),
+            static_cast<uint8_t>((argb >> 16) & 0xFF),
+            static_cast<uint8_t>((argb >> 8) & 0xFF),
+            static_cast<uint8_t>(argb & 0xFF) };
+    }
+
+    void MainWindow::AddPaletteColor(winrt::Windows::UI::Color const& color)
+    {
+        // Skip exact duplicates so the palette stays a set of distinct swatches.
+        for (auto const& existing : m_palette)
+        {
+            if (existing.A == color.A && existing.R == color.R &&
+                existing.G == color.G && existing.B == color.B)
+            {
+                return;
+            }
+        }
+        if (m_palette.size() >= k_maxPalette)
+        {
+            return;
+        }
+        m_palette.push_back(color);
+    }
+
+    void MainWindow::RebuildPaletteUI()
+    {
+        // The swatches are laid out by a WrapLayout inside PaletteRepeater; we only
+        // have to keep the bound collection in sync with m_palette. ElementPrepared
+        // fills in each realized swatch's colour on demand.
+        m_paletteItems.Clear();
+        for (auto const& color : m_palette)
+        {
+            m_paletteItems.Append(winrt::box_value(ColorToHex(color)));
+        }
+
+        PaletteEmptyHint().Visibility(m_palette.empty()
+            ? winrt::Microsoft::UI::Xaml::Visibility::Visible
+            : winrt::Microsoft::UI::Xaml::Visibility::Collapsed);
+    }
+
+    void MainWindow::OnPaletteElementPrepared(winrt::Microsoft::UI::Xaml::Controls::ItemsRepeater const& sender, winrt::Microsoft::UI::Xaml::Controls::ItemsRepeaterElementPreparedEventArgs const& args)
+    {
+        auto swatch = args.Element().try_as<Border>();
+        if (!swatch) { return; }
+
+        // Read the swatch colour from whichever repeater raised the event (standard
+        // or custom), so both share one appearance and one set of handlers.
+        auto source = sender.ItemsSourceView();
+        const auto index = args.Index();
+        if (source == nullptr || index < 0 || index >= source.Count()) { return; }
+
+        const auto hex = winrt::unbox_value_or<winrt::hstring>(source.GetAt(index), L"");
+        const auto color = HexToColor(std::wstring_view{ hex });
+
+        swatch.Tag(winrt::box_value(hex));
+        ToolTipService::SetToolTip(swatch, winrt::box_value(hex));
+
+        // A uniform 1px border keeps light and transparent swatches visible.
+        swatch.BorderBrush(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{
+            winrt::Windows::UI::Color{ 0x60, 0x80, 0x80, 0x80 } });
+        swatch.BorderThickness(winrt::Microsoft::UI::Xaml::ThicknessHelper::FromUniformLength(1));
+
+        if (color.A == 0)
+        {
+            // Fully transparent: show a 2x2 checkerboard, matching how the canvas
+            // renders transparency, instead of a fill.
+            swatch.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{
+                winrt::Windows::UI::Color{ 0xFF, 0xFF, 0xFF, 0xFF } });
+
+            Grid checker;
+            checker.ColumnDefinitions().Append(winrt::Microsoft::UI::Xaml::Controls::ColumnDefinition{});
+            checker.ColumnDefinitions().Append(winrt::Microsoft::UI::Xaml::Controls::ColumnDefinition{});
+            checker.RowDefinitions().Append(winrt::Microsoft::UI::Xaml::Controls::RowDefinition{});
+            checker.RowDefinitions().Append(winrt::Microsoft::UI::Xaml::Controls::RowDefinition{});
+
+            auto grayCell = [](int32_t row, int32_t col)
+            {
+                Border cell;
+                cell.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{
+                    winrt::Windows::UI::Color{ 0xFF, 0xC0, 0xC0, 0xC0 } });
+                Grid::SetRow(cell, row);
+                Grid::SetColumn(cell, col);
+                return cell;
+            };
+            checker.Children().Append(grayCell(0, 0));
+            checker.Children().Append(grayCell(1, 1));
+            swatch.Child(checker);
+        }
+        else
+        {
+            swatch.Child(nullptr);
+            swatch.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{ color });
+        }
+    }
+
+    void MainWindow::OnPaletteSwatchTapped(IInspectable const&, winrt::Microsoft::UI::Xaml::Input::TappedRoutedEventArgs const& args)
+    {
+        const auto hex = SwatchHexFromSource(args.OriginalSource());
+        if (hex.empty()) { return; }
+        ColorPickerControl().Color(HexToColor(std::wstring_view{ hex }));
+    }
+
+    void MainWindow::OnPaletteSwatchRightTapped(IInspectable const&, winrt::Microsoft::UI::Xaml::Input::RightTappedRoutedEventArgs const& args)
+    {
+        const auto hex = SwatchHexFromSource(args.OriginalSource());
+        if (hex.empty()) { return; }
+        const auto target = HexToColor(std::wstring_view{ hex });
+
+        for (auto it = m_palette.begin(); it != m_palette.end(); ++it)
+        {
+            if (it->A == target.A && it->R == target.R && it->G == target.G && it->B == target.B)
+            {
+                m_palette.erase(it);
+                break;
+            }
+        }
+        RebuildPaletteUI();
+        SavePalette();
+    }
+
+    void MainWindow::OnPaletteAdd(IInspectable const&, RoutedEventArgs const&)
+    {
+        AddPaletteColor(ColorPickerControl().Color());
+        RebuildPaletteUI();
+        SavePalette();
+    }
+
+    void MainWindow::OnPaletteFromImage(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (doc().context == nullptr) { return; }
+
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+
+        // Count how often each fully/partly opaque colour occurs, then take the
+        // most common ones. Fully transparent pixels carry no colour and are skipped.
+        std::vector<std::pair<uint32_t, int32_t>> counts; // packed ARGB -> frequency
+        counts.reserve(256);
+        for (int32_t y = 0; y < h; ++y)
+        {
+            for (int32_t x = 0; x < w; ++x)
+            {
+                const auto c = doc().context.GetPixel(x, y);
+                if (c.A == 0) { continue; }
+                const uint32_t key = (static_cast<uint32_t>(c.A) << 24) |
+                                     (static_cast<uint32_t>(c.R) << 16) |
+                                     (static_cast<uint32_t>(c.G) << 8) |
+                                      static_cast<uint32_t>(c.B);
+                auto found = std::find_if(counts.begin(), counts.end(),
+                    [key](auto const& p) { return p.first == key; });
+                if (found != counts.end()) { ++found->second; }
+                else { counts.emplace_back(key, 1); }
+            }
+        }
+
+        if (counts.empty()) { return; }
+
+        std::stable_sort(counts.begin(), counts.end(),
+            [](auto const& a, auto const& b) { return a.second > b.second; });
+
+        for (auto const& entry : counts)
+        {
+            if (m_palette.size() >= k_maxPalette) { break; }
+            const uint32_t key = entry.first;
+            AddPaletteColor(winrt::Windows::UI::Color{
+                static_cast<uint8_t>((key >> 24) & 0xFF),
+                static_cast<uint8_t>((key >> 16) & 0xFF),
+                static_cast<uint8_t>((key >> 8) & 0xFF),
+                static_cast<uint8_t>(key & 0xFF) });
+        }
+        RebuildPaletteUI();
+        SavePalette();
+    }
+
+    void MainWindow::OnPaletteClear(IInspectable const&, RoutedEventArgs const&)
+    {
+        m_palette.clear();
+        RebuildPaletteUI();
+        SavePalette();
+    }
+
+    void MainWindow::SavePalette()
+    {
+        std::wstring joined;
+        for (auto const& c : m_palette)
+        {
+            if (!joined.empty()) { joined += L';'; }
+            joined += std::wstring{ ColorToHex(c) };
+        }
+        auto settings = winrt::Windows::Storage::ApplicationData::Current().LocalSettings();
+        settings.Values().Insert(L"CustomPalette", winrt::box_value(winrt::hstring{ joined }));
+    }
+
+    void MainWindow::LoadPalette()
+    {
+        auto settings = winrt::Windows::Storage::ApplicationData::Current().LocalSettings();
+        auto value = settings.Values().TryLookup(L"CustomPalette");
+        if (!value) { return; }
+
+        const std::wstring joined{ winrt::unbox_value_or<winrt::hstring>(value, L"") };
+        m_palette.clear();
+        size_t start = 0;
+        while (start <= joined.size())
+        {
+            const size_t sep = joined.find(L';', start);
+            const std::wstring token = joined.substr(start, sep == std::wstring::npos ? std::wstring::npos : sep - start);
+            if (!token.empty())
+            {
+                AddPaletteColor(HexToColor(token));
+            }
+            if (sep == std::wstring::npos) { break; }
+            start = sep + 1;
+        }
+    }
+
+    winrt::fire_and_forget MainWindow::OnPaletteSave(IInspectable const&, RoutedEventArgs const&)
+    {
+        auto lifetime = get_strong();
+
+        winrt::Windows::Storage::Pickers::FileSavePicker picker;
+        {
+            auto windowNative = this->try_as<::IWindowNative>();
+            HWND hwnd{};
+            winrt::check_hresult(windowNative->get_WindowHandle(&hwnd));
+            auto initWithWindow = picker.as<::IInitializeWithWindow>();
+            winrt::check_hresult(initWithWindow->Initialize(hwnd));
+        }
+
+        picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::DocumentsLibrary);
+        picker.SuggestedFileName(L"palette");
+        picker.FileTypeChoices().Insert(L"Palette", winrt::single_threaded_vector<winrt::hstring>({ L".txt" }));
+
+        auto file = co_await picker.PickSaveFileAsync();
+        if (!file) { co_return; }
+
+        std::wstring contents;
+        for (auto const& c : m_palette)
+        {
+            contents += std::wstring{ ColorToHex(c) };
+            contents += L"\r\n";
+        }
+        co_await winrt::Windows::Storage::FileIO::WriteTextAsync(file, winrt::hstring{ contents });
+    }
+
+    winrt::fire_and_forget MainWindow::OnPaletteLoad(IInspectable const&, RoutedEventArgs const&)
+    {
+        auto lifetime = get_strong();
+
+        winrt::Windows::Storage::Pickers::FileOpenPicker picker;
+        {
+            auto windowNative = this->try_as<::IWindowNative>();
+            HWND hwnd{};
+            winrt::check_hresult(windowNative->get_WindowHandle(&hwnd));
+            auto initWithWindow = picker.as<::IInitializeWithWindow>();
+            winrt::check_hresult(initWithWindow->Initialize(hwnd));
+        }
+
+        picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::DocumentsLibrary);
+        picker.FileTypeFilter().Append(L".txt");
+        picker.FileTypeFilter().Append(L".pal");
+
+        auto file = co_await picker.PickSingleFileAsync();
+        if (!file) { co_return; }
+
+        const auto text = co_await winrt::Windows::Storage::FileIO::ReadTextAsync(file);
+        const std::wstring body{ text };
+
+        // Accept any whitespace/comma/semicolon separated list of "#AARRGGBB" tokens.
+        std::wstring token;
+        auto flush = [&]()
+        {
+            if (!token.empty())
+            {
+                AddPaletteColor(HexToColor(token));
+                token.clear();
+            }
+        };
+        for (wchar_t ch : body)
+        {
+            if (ch == L'\r' || ch == L'\n' || ch == L' ' || ch == L'\t' || ch == L';' || ch == L',')
+            {
+                flush();
+            }
+            else
+            {
+                token += ch;
+            }
+        }
+        flush();
+
+        RebuildPaletteUI();
+        SavePalette();
     }
 
     // ---- Zoom ---------------------------------------------------------------

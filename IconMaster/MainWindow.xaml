@@ -361,52 +361,107 @@
         <Border Grid.Row="1" Grid.Column="2" Grid.RowSpan="2" Style="{StaticResource WorkspacePanelStyle}">
             <!-- Palette -->
             <StackPanel Spacing="8">
-                <TextBlock Text="Colour" Style="{StaticResource CaptionTextBlockStyle}" />
+                <Grid RowSpacing="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Standard palette" Style="{StaticResource CaptionTextBlockStyle}"
+                               VerticalAlignment="Center" />
 
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <Button Click="OnSwatchClick" Tag="#FF000000" Padding="0" ToolTipService.ToolTip="Black">
-                        <Border Width="22" Height="22" Background="#FF000000" />
-                    </Button>
-                    <Button Click="OnSwatchClick" Tag="#FF808080" Padding="0" ToolTipService.ToolTip="Gray">
-                        <Border Width="22" Height="22" Background="#FF808080" />
-                    </Button>
-                    <Button Click="OnSwatchClick" Tag="#FFFFFFFF" Padding="0" ToolTipService.ToolTip="White">
-                        <Border Width="22" Height="22" Background="#FFFFFFFF" BorderBrush="Gray" BorderThickness="1" />
-                    </Button>
-                    <Button Click="OnSwatchClick" Tag="#FFE81123" Padding="0" ToolTipService.ToolTip="Red">
-                        <Border Width="22" Height="22" Background="#FFE81123" />
-                    </Button>
-                    <Button Click="OnSwatchClick" Tag="#FFFF8C00" Padding="0" ToolTipService.ToolTip="Orange">
-                        <Border Width="22" Height="22" Background="#FFFF8C00" />
-                    </Button>
-                    <Button Click="OnSwatchClick" Tag="#FFFFF100" Padding="0" ToolTipService.ToolTip="Yellow">
-                        <Border Width="22" Height="22" Background="#FFFFF100" />
-                    </Button>
-                </StackPanel>
+                    <!-- Same ItemsRepeater + WrapLayout as the custom palette so both
+                         read as one control; the preset colours are seeded in code. -->
+                    <ScrollViewer Grid.Row="1"
+                                  MaxWidth="320" HorizontalAlignment="Left"
+                                  Padding="1,0,0,0"
+                                  HorizontalScrollMode="Disabled"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Disabled">
+                        <ItemsRepeater x:Name="StandardPaletteRepeater"
+                                       ElementPrepared="OnPaletteElementPrepared"
+                                       Tapped="OnPaletteSwatchTapped">
+                            <ItemsRepeater.Layout>
+                                <local:WrapLayout HorizontalSpacing="6" VerticalSpacing="6"
+                                                  Orientation="Horizontal" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="20" Height="20" />
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </ScrollViewer>
+                </Grid>
 
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <Button Click="OnSwatchClick" Tag="#FF107C10" Padding="0" ToolTipService.ToolTip="Green">
-                        <Border Width="22" Height="22" Background="#FF107C10" />
-                    </Button>
-                    <Button Click="OnSwatchClick" Tag="#FF0078D7" Padding="0" ToolTipService.ToolTip="Blue">
-                        <Border Width="22" Height="22" Background="#FF0078D7" />
-                    </Button>
-                    <Button Click="OnSwatchClick" Tag="#FF00B7C3" Padding="0" ToolTipService.ToolTip="Cyan">
-                        <Border Width="22" Height="22" Background="#FF00B7C3" />
-                    </Button>
-                    <Button Click="OnSwatchClick" Tag="#FF881798" Padding="0" ToolTipService.ToolTip="Purple">
-                        <Border Width="22" Height="22" Background="#FF881798" />
-                    </Button>
-                    <Button Click="OnSwatchClick" Tag="#FF8E562E" Padding="0" ToolTipService.ToolTip="Brown">
-                        <Border Width="22" Height="22" Background="#FF8E562E" />
-                    </Button>
-                    <Button Click="OnSwatchClick" Tag="#00000000" Padding="0" ToolTipService.ToolTip="Transparent">
-                        <Border Width="22" Height="22" BorderBrush="Gray" BorderThickness="1">
-                            <TextBlock Text="&#xE894;" FontFamily="Segoe MDL2 Assets" FontSize="12"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                    </Button>
-                </StackPanel>
+                <Border Style="{StaticResource HorizontalDividerStyle}" />
+
+                <Grid RowSpacing="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Custom palette" Style="{StaticResource CaptionTextBlockStyle}"
+               VerticalAlignment="Center" />
+                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right">
+                        <Button Click="OnPaletteAdd" Padding="4" ToolTipService.ToolTip="Add current colour">
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE710;" FontSize="14" />
+                        </Button>
+                        <Button Click="OnPaletteFromImage" Padding="4" ToolTipService.ToolTip="Extract from image">
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xEB9F;" FontSize="14" />
+                        </Button>
+                        <Button Click="OnPaletteLoad" Padding="4" ToolTipService.ToolTip="Load palette…">
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8E5;" FontSize="14" />
+                        </Button>
+                        <Button Click="OnPaletteSave" Padding="4" ToolTipService.ToolTip="Save palette…">
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74E;" FontSize="14" />
+                        </Button>
+                        <Button Click="OnPaletteClear" Padding="4" ToolTipService.ToolTip="Clear palette">
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74D;" FontSize="14" />
+                        </Button>
+                    </StackPanel>
+                    <!-- MaxWidth gives the WrapLayout a finite width to wrap within: the
+                         palette lives in an Auto-width column, which otherwise measures its
+                         content with an infinite width and the swatches never wrap. -->
+                    <ScrollViewer Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                  MaxHeight="220" MaxWidth="320" HorizontalAlignment="Left"
+                                  Padding="1,0,0,0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollMode="Disabled"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ItemsRepeater x:Name="PaletteRepeater"
+                                       ElementPrepared="OnPaletteElementPrepared"
+                                       Tapped="OnPaletteSwatchTapped"
+                                       RightTapped="OnPaletteSwatchRightTapped">
+                            <ItemsRepeater.Layout>
+                                <!-- 6px gap = the standard palette's 4px spacing plus the 2px
+                                     Button border that wraps each standard swatch, so the bare
+                                     Border swatches line up 12-per-row like the standard palette. -->
+                                <local:WrapLayout HorizontalSpacing="6" VerticalSpacing="6"
+                                                  Orientation="Horizontal" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="20" Height="20" />
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </ScrollViewer>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" x:Name="PaletteEmptyHint"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                TextWrapping="Wrap">
+                        <Run>No custom colours yet. </Run>
+                        <LineBreak/>
+                        <Run>Use + to add the current colour, or extract from the image.</Run>
+                    </TextBlock>
+                </Grid>
+
+                <Border Style="{StaticResource HorizontalDividerStyle}" />
 
                 <ColorPicker x:Name="ColorPickerControl"
                          IsAlphaEnabled="True"

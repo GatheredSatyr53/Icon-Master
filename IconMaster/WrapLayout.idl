@@ -1,0 +1,17 @@
+namespace IconMaster
+{
+    // Reusable "Square + Width + Height" input group with width/height mirroring,
+    // shared by the New icon and Resize image dialogs.
+    [default_interface]
+    runtimeclass WrapLayout : Microsoft.UI.Xaml.Controls.VirtualizingLayout
+    {
+        WrapLayout();
+
+        Double HorizontalSpacing;
+        static Microsoft.UI.Xaml.DependencyProperty HorizontalSpacingProperty{ get; };
+        Double VerticalSpacing;
+        static Microsoft.UI.Xaml.DependencyProperty VerticalSpacingProperty{ get; };
+        Microsoft.UI.Xaml.Controls.Orientation Orientation;
+        static Microsoft.UI.Xaml.DependencyProperty OrientationProperty{ get; };
+    }
+}
