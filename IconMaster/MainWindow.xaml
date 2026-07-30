@@ -266,7 +266,7 @@
                             <RadioButton Tag="rectangle" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Rectangle">
                                 <PathIcon Width="16" Height="16"
-                              Data="F0 M2,4 H14 V12 H2 Z M4,6 H12 V10 H4 Z" />
+                              Data="F0 M3,3 H13 V13 H3 Z M5,5 H11 V11 H5 Z" />
                             </RadioButton>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -306,9 +306,25 @@
 
                     <Border Style="{StaticResource HorizontalDividerStyle}" />
 
-                    <CheckBox x:Name="FillShapeCheck" Content="Fill shape"
-                              Checked="OnShapeFillToggled" Unchecked="OnShapeFillToggled"
-                              ToolTipService.ToolTip="Fill rectangles and ellipses instead of drawing only the outline" />
+                    <!-- Shape fill mode: outline vs filled, as two large swatches. -->
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <RadioButton Tag="outline" GroupName="shapefill" IsChecked="True"
+                                     Width="49" Height="46"
+                                     Checked="OnShapeFillModeChanged"
+                                     ToolTipService.ToolTip="Outline shapes">
+                            <Rectangle Width="30" Height="22"
+                                       Stroke="{ThemeResource ToggleButtonForeground}" StrokeThickness="1"
+                                       Fill="Transparent" />
+                        </RadioButton>
+                        <RadioButton Tag="filled" GroupName="shapefill"
+                                     Width="49" Height="46"
+                                     Checked="OnShapeFillModeChanged"
+                                     ToolTipService.ToolTip="Filled shapes">
+                            <Rectangle Width="30" Height="22"
+                                       Stroke="{ThemeResource ToggleButtonForeground}" StrokeThickness="1"
+                                       Fill="{ThemeResource ToggleButtonForeground}" />
+                        </RadioButton>
+                    </StackPanel>
 
                 </StackPanel>
             </ScrollViewer>

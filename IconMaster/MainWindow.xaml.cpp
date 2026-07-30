@@ -961,15 +961,14 @@ namespace winrt::IconMaster::implementation
         m_hardness = std::clamp((int32_t) slider.Value(), 0, 100);
     }
 
-    void MainWindow::OnShapeFillToggled(IInspectable const& sender, RoutedEventArgs const&)
+    void MainWindow::OnShapeFillModeChanged(IInspectable const& sender, RoutedEventArgs const&)
     {
-        auto check = sender.try_as<winrt::Microsoft::UI::Xaml::Controls::CheckBox>();
-        if (check == nullptr)
+        auto radio = sender.try_as<winrt::Microsoft::UI::Xaml::Controls::RadioButton>();
+        if (radio == nullptr)
         {
             return;
         }
-        const auto state = check.IsChecked();
-        m_shapeFilled = state != nullptr && state.Value();
+        m_shapeFilled = winrt::unbox_value_or<winrt::hstring>(radio.Tag(), L"outline") == L"filled";
     }
 
     void MainWindow::CommitShape(int32_t x1, int32_t y1)
