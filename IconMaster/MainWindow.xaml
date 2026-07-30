@@ -304,6 +304,12 @@
                                 Minimum="0" Maximum="100" StepFrequency="5" Value="100" SnapsTo="StepValues" />
                     </StackPanel>
 
+                    <Border Style="{StaticResource HorizontalDividerStyle}" />
+
+                    <CheckBox x:Name="FillShapeCheck" Content="Fill shape"
+                              Checked="OnShapeFillToggled" Unchecked="OnShapeFillToggled"
+                              ToolTipService.ToolTip="Fill rectangles and ellipses instead of drawing only the outline" />
+
                 </StackPanel>
             </ScrollViewer>
         </Border>

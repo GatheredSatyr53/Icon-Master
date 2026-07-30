@@ -13,7 +13,7 @@ using namespace winrt::Windows::Graphics;
 
 namespace winrt::IconMaster::implementation
 {
-    IVector<PointInt32> RectangleTool::Rasterize(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+    IVector<PointInt32> RectangleTool::Rasterize(int32_t x0, int32_t y0, int32_t x1, int32_t y1, bool filled)
     {
         auto points = winrt::single_threaded_vector<PointInt32>();
 
@@ -21,6 +21,18 @@ namespace winrt::IconMaster::implementation
         const int32_t right = std::max(x0, x1);
         const int32_t top = std::min(y0, y1);
         const int32_t bottom = std::max(y0, y1);
+
+        if (filled)
+        {
+            for (int32_t y = top; y <= bottom; ++y)
+            {
+                for (int32_t x = left; x <= right; ++x)
+                {
+                    points.Append(PointInt32{ x, y });
+                }
+            }
+            return points;
+        }
 
         for (int32_t x = left; x <= right; ++x)
         {

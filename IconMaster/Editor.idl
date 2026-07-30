@@ -24,9 +24,11 @@ namespace IconMaster
 
     // A shape tool defined by two corner points. Returns the pixels the shape
     // covers, so callers can preview it non-destructively before committing.
+    // When filled is true, closed shapes (rectangle, ellipse) return their
+    // interior as well as their outline; open shapes (line) ignore it.
     interface IShapeTool
     {
-        Windows.Foundation.Collections.IVector<Windows.Graphics.PointInt32> Rasterize(Int32 x0, Int32 y0, Int32 x1, Int32 y1);
+        Windows.Foundation.Collections.IVector<Windows.Graphics.PointInt32> Rasterize(Int32 x0, Int32 y0, Int32 x1, Int32 y1, Boolean filled);
     }
 
     // Paints the context's current colour at the pixel.
