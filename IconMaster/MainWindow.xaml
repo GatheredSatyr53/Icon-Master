@@ -261,12 +261,12 @@
                             <RadioButton Tag="line" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Line">
                                 <PathIcon Width="16" Height="16"
-                              Data="M2.2,12.2 L3.8,13.8 L13.8,3.8 L12.2,2.2 Z" />
+                              Data="M2.2,12.2 L3.2,13.2 L13.2,3.2 L12.2,2.2 Z" />
                             </RadioButton>
                             <RadioButton Tag="rectangle" GroupName="tools"
                              Checked="OnToolSelected" ToolTipService.ToolTip="Rectangle">
                                 <PathIcon Width="16" Height="16"
-                              Data="F0 M2,4 H14 V12 H2 Z M4,6 H12 V10 H4 Z" />
+                              Data="F0 M1,1 H15 V15 H1 Z M2,2 H14 V14 H2 Z" />
                             </RadioButton>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -302,6 +302,26 @@
                                 ToolTipService.ToolTip="Hardness (edge softness)"
                                 ThumbToolTipValueConverter="{StaticResource percentTooltipConverter}"
                                 Minimum="0" Maximum="100" StepFrequency="5" Value="100" SnapsTo="StepValues" />
+                    </StackPanel>
+
+                    <Border Style="{StaticResource HorizontalDividerStyle}" />
+
+                    <!-- Shape fill mode: outline vs filled, as two large swatches. -->
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <RadioButton Tag="outline" GroupName="shapefill" IsChecked="True"
+                                     Checked="OnShapeFillModeChanged"
+                                     ToolTipService.ToolTip="Outline shapes">
+                            <Rectangle Width="28" Height="20"
+                                       Stroke="{ThemeResource ToggleButtonForeground}" StrokeThickness="1"
+                                       Fill="Transparent" />
+                        </RadioButton>
+                        <RadioButton Tag="filled" GroupName="shapefill"
+                                     Checked="OnShapeFillModeChanged"
+                                     ToolTipService.ToolTip="Filled shapes">
+                            <Rectangle Width="28" Height="20"
+                                       Stroke="{ThemeResource ToggleButtonForeground}" StrokeThickness="1"
+                                       Fill="{ThemeResource ToggleButtonForeground}" />
+                        </RadioButton>
                     </StackPanel>
 
                 </StackPanel>

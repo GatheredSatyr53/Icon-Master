@@ -917,7 +917,7 @@ namespace winrt::IconMaster::implementation
         const int32_t h = doc().context.PixelHeight();
         const int32_t s = std::clamp(m_brushSize, 1, 64);
         const int32_t start = -(s / 2);
-        auto points = m_currentShape.Rasterize(x0, y0, x1, y1);
+        auto points = m_currentShape.Rasterize(x0, y0, x1, y1, m_shapeFilled);
         for (auto const& p : points)
         {
             for (int32_t j = 0; j < s; ++j)
@@ -959,6 +959,16 @@ namespace winrt::IconMaster::implementation
             return;
         }
         m_hardness = std::clamp((int32_t) slider.Value(), 0, 100);
+    }
+
+    void MainWindow::OnShapeFillModeChanged(IInspectable const& sender, RoutedEventArgs const&)
+    {
+        auto radio = sender.try_as<winrt::Microsoft::UI::Xaml::Controls::RadioButton>();
+        if (radio == nullptr)
+        {
+            return;
+        }
+        m_shapeFilled = winrt::unbox_value_or<winrt::hstring>(radio.Tag(), L"outline") == L"filled";
     }
 
     void MainWindow::CommitShape(int32_t x1, int32_t y1)

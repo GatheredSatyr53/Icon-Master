@@ -13,7 +13,7 @@ using namespace winrt::Windows::Graphics;
 
 namespace winrt::IconMaster::implementation
 {
-    IVector<PointInt32> LineTool::Rasterize(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+    IVector<PointInt32> LineTool::Rasterize(int32_t x0, int32_t y0, int32_t x1, int32_t y1, bool /*filled*/)
     {
         auto points = winrt::single_threaded_vector<PointInt32>();
 

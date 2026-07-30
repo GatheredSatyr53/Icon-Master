@@ -9,7 +9,7 @@ namespace winrt::IconMaster::implementation
         RectangleTool() = default;
 
         winrt::Windows::Foundation::Collections::IVector<winrt::Windows::Graphics::PointInt32>
-            Rasterize(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
+            Rasterize(int32_t x0, int32_t y0, int32_t x1, int32_t y1, bool filled);
     };
 }
 

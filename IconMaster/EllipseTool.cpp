@@ -8,6 +8,8 @@
 #include <winrt/Windows.Foundation.Collections.h>
 #include <algorithm>
 #include <cstdlib>
+#include <map>
+#include <utility>
 
 using namespace winrt::Windows::Foundation::Collections;
 using namespace winrt::Windows::Graphics;
@@ -16,9 +18,30 @@ namespace winrt::IconMaster::implementation
 {
     // Bresenham ellipse inscribed in a rectangle (Zingl's "rasterizing algorithm"),
     // which handles both odd and even bounding-box dimensions.
-    IVector<PointInt32> EllipseTool::Rasterize(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+    IVector<PointInt32> EllipseTool::Rasterize(int32_t x0, int32_t y0, int32_t x1, int32_t y1, bool filled)
     {
         auto points = winrt::single_threaded_vector<PointInt32>();
+
+        // When filling, record each row's leftmost/rightmost boundary x so the
+        // interior can be swept as horizontal spans after the outline walk.
+        std::map<int32_t, std::pair<int32_t, int32_t>> rowSpan;
+        auto emit = [&](int32_t x, int32_t y)
+        {
+            if (filled)
+            {
+                auto it = rowSpan.find(y);
+                if (it == rowSpan.end()) { rowSpan.emplace(y, std::pair{ x, x }); }
+                else
+                {
+                    it->second.first = std::min(it->second.first, x);
+                    it->second.second = std::max(it->second.second, x);
+                }
+            }
+            else
+            {
+                points.Append(PointInt32{ x, y });
+            }
+        };
 
         int32_t a = std::abs(x1 - x0);
         int32_t b = std::abs(y1 - y0);
@@ -37,10 +60,10 @@ namespace winrt::IconMaster::implementation
 
         do
         {
-            points.Append(PointInt32{ x1, y0 }); // quadrant I
-            points.Append(PointInt32{ x0, y0 }); // quadrant II
-            points.Append(PointInt32{ x0, y1 }); // quadrant III
-            points.Append(PointInt32{ x1, y1 }); // quadrant IV
+            emit(x1, y0); // quadrant I
+            emit(x0, y0); // quadrant II
+            emit(x0, y1); // quadrant III
+            emit(x1, y1); // quadrant IV
 
             const long e2 = 2 * err;
             if (e2 <= dy)
@@ -60,12 +83,23 @@ namespace winrt::IconMaster::implementation
         // Finish the top and bottom flat sections for very thin ellipses.
         while (y0 - y1 < b)
         {
-            points.Append(PointInt32{ x0 - 1, y0 });
-            points.Append(PointInt32{ x1 + 1, y0 });
+            emit(x0 - 1, y0);
+            emit(x1 + 1, y0);
             ++y0;
-            points.Append(PointInt32{ x0 - 1, y1 });
-            points.Append(PointInt32{ x1 + 1, y1 });
+            emit(x0 - 1, y1);
+            emit(x1 + 1, y1);
             --y1;
+        }
+
+        if (filled)
+        {
+            for (auto const& [y, span] : rowSpan)
+            {
+                for (int32_t x = span.first; x <= span.second; ++x)
+                {
+                    points.Append(PointInt32{ x, y });
+                }
+            }
         }
 
         return points;

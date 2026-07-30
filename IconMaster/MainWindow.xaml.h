@@ -18,6 +18,7 @@ namespace winrt::IconMaster::implementation
         void OnToolSelected(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnBrushSizeChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const & args);
         void OnHardnessChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const & args);
+        void OnShapeFillModeChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnColorChanged(winrt::Microsoft::UI::Xaml::Controls::ColorPicker const& sender, winrt::Microsoft::UI::Xaml::Controls::ColorChangedEventArgs const& args);
 
         // Custom palette.
@@ -168,6 +169,7 @@ namespace winrt::IconMaster::implementation
         ToolKind m_toolKind{ ToolKind::Pen };
         int32_t m_brushSize{ 1 };       // Pen/Eraser/shape footprint, in pixels (square)
         int32_t m_hardness{ 100 };      // edge softness, 0..100 (100 = solid)
+        bool m_shapeFilled{ false };    // fill rectangles/ellipses instead of outline only
         bool m_suppressColorSync{ false };
 
         // In-progress soft Pen/Eraser stroke: re-composited from the pre-stroke
