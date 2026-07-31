@@ -8,13 +8,18 @@ using namespace IconMaster::literals;
 
 namespace winrt::IconMaster::implementation
 {
-    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, HorizontalSpacing, double, 0.0_obj)
+    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, HorizontalSpacing, float, 0.0_obj, WrapLayout::OnLayoutPropertyChanged)
 
-    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, VerticalSpacing, double, 0.0_obj)
+    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, VerticalSpacing, float, 0.0_obj, WrapLayout::OnLayoutPropertyChanged)
 
-    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, Orientation, winrt::Microsoft::UI::Xaml::Controls::Orientation, winrt::box_value(winrt::Microsoft::UI::Xaml::Controls::Orientation::Horizontal))
+    IM_DP_DEFINE(WrapLayout, 
+        winrt::IconMaster::WrapLayout, 
+        Orientation, 
+        winrt::Microsoft::UI::Xaml::Controls::Orientation, 
+        winrt::box_value(winrt::Microsoft::UI::Xaml::Controls::Orientation::Horizontal), 
+        WrapLayout::OnLayoutPropertyChanged)
 
-	void WrapLayout::OnLayoutPropertyChanged(winrt::Microsoft::UI::Xaml::DependencyObject const& d, winrt::Microsoft::UI::Xaml::DependencyPropertyChangedEventArgs const& e) 
+	void WrapLayout::OnLayoutPropertyChanged(winrt::Microsoft::UI::Xaml::DependencyObject const& d, [[maybe_unused]] winrt::Microsoft::UI::Xaml::DependencyPropertyChangedEventArgs const& e) 
 	{
 		if (auto wp = d.try_as<WrapLayout>())
 		{
@@ -92,7 +97,7 @@ namespace winrt::IconMaster::implementation
             state->AvailableU(parentMeasure.U);
         }
 
-        double currentV = 0;
+        float currentV = 0;
         UvBounds realizationBounds(Orientation(), context.RealizationRect());
         UvMeasure position;
         for (int32_t i = 0; i < context.ItemCount(); ++i)

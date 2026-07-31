@@ -8,9 +8,9 @@ namespace winrt::IconMaster::implementation
     {
         WrapLayout() = default;
 
-        IM_DP_DECLARE(HorizontalSpacing, double)
+        IM_DP_DECLARE(HorizontalSpacing, float)
 
-        IM_DP_DECLARE(VerticalSpacing, double)
+        IM_DP_DECLARE(VerticalSpacing, float)
 
         IM_DP_DECLARE(Orientation, winrt::Microsoft::UI::Xaml::Controls::Orientation)
 

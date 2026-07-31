@@ -29,6 +29,7 @@ public:
 
 namespace IconMaster::literals
 {
+
     inline winrt::Windows::Foundation::IInspectable operator""_obj(long double value)
     {
         return winrt::box_value(static_cast<double>(value));

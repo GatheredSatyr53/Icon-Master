@@ -44,7 +44,7 @@ namespace winrt::IconMaster::implementation
         items.erase(from, from + numToRemove);
     }
 
-    void WrapLayoutState::SetOrientation(winrt::Microsoft::UI::Xaml::Controls::Orientation orientation)
+    void WrapLayoutState::SetOrientation(winrt::Microsoft::UI::Xaml::Controls::Orientation o)
     {
         for (auto& item : items | std::views::filter([](WrapItem const& i) { return i.measure.has_value(); }))
         {
@@ -56,7 +56,7 @@ namespace winrt::IconMaster::implementation
             item.position.reset();
         }
 
-        this->orientation = orientation;
+        this->orientation = o;
         this->availableU = 0;
     }
 
@@ -68,7 +68,7 @@ namespace winrt::IconMaster::implementation
         }
     }
 
-    double WrapLayoutState::GetHeight()
+    float WrapLayoutState::GetHeight()
     {
         if (items.empty())
         {
@@ -76,7 +76,7 @@ namespace winrt::IconMaster::implementation
         }
 
         std::optional<UvMeasure> lastPosition;
-        double maxV = 0;
+        float maxV = 0;
 
         for (auto const& item : items | std::views::reverse)
         {

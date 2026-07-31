@@ -4,12 +4,13 @@ namespace winrt::IconMaster::implementation
 {
     struct UvMeasure
     {
-        double U = 0;
-        double V = 0;
+        float U = 0.0f;
+        float V = 0.0f;
 
-        explicit UvMeasure() = default;
+        UvMeasure() = default;
 
-        explicit UvMeasure(winrt::Microsoft::UI::Xaml::Controls::Orientation orientation, winrt::Windows::Foundation::Size const& size)
+        UvMeasure(winrt::Microsoft::UI::Xaml::Controls::Orientation orientation,
+            winrt::Windows::Foundation::Size const& size)
         {
             if (orientation == winrt::Microsoft::UI::Xaml::Controls::Orientation::Horizontal)
             {
@@ -23,28 +24,22 @@ namespace winrt::IconMaster::implementation
             }
         }
 
-        winrt::Windows::Foundation::Point GetPoint(winrt::Microsoft::UI::Xaml::Controls::Orientation orientation) const
+        winrt::Windows::Foundation::Point GetPoint(
+            winrt::Microsoft::UI::Xaml::Controls::Orientation orientation) const noexcept
         {
-            if (orientation == winrt::Microsoft::UI::Xaml::Controls::Orientation::Horizontal)
-            {
-                return winrt::Windows::Foundation::Point(U, V);
-            }
-            else {
-                return winrt::Windows::Foundation::Point(V, U);
-            }
+            return orientation == winrt::Microsoft::UI::Xaml::Controls::Orientation::Horizontal
+                ? winrt::Windows::Foundation::Point{ U, V }
+            : winrt::Windows::Foundation::Point{ V, U };
         }
 
-        winrt::Windows::Foundation::Size GetSize(winrt::Microsoft::UI::Xaml::Controls::Orientation orientation) const
+        winrt::Windows::Foundation::Size GetSize(
+            winrt::Microsoft::UI::Xaml::Controls::Orientation orientation) const noexcept
         {
-            if (orientation == winrt::Microsoft::UI::Xaml::Controls::Orientation::Horizontal)
-            {
-                return winrt::Windows::Foundation::Size(U, V);
-            }
-            else {
-                return winrt::Windows::Foundation::Size(V, U);
-            }
+            return orientation == winrt::Microsoft::UI::Xaml::Controls::Orientation::Horizontal
+                ? winrt::Windows::Foundation::Size{ U, V }
+            : winrt::Windows::Foundation::Size{ V, U };
         }
 
-        friend bool operator==(const UvMeasure& left, const UvMeasure& right) = default;
+        friend bool operator==(UvMeasure const& left, UvMeasure const& right) = default;
     };
 }

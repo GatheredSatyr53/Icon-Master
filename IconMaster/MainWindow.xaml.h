@@ -93,7 +93,7 @@ namespace winrt::IconMaster::implementation
         static winrt::Windows::UI::Color HexToColor(std::wstring_view hex);   // parse "#AARRGGBB"
 
         // Undo/redo via full-canvas snapshots.
-        struct Snapshot { int32_t w; int32_t h; std::vector<winrt::Windows::UI::Color> pixels; };
+        struct Snapshot { int32_t w = 1; int32_t h = 1; std::vector<winrt::Windows::UI::Color> pixels; };
 
         // Per-document state (one per open tab). The current tool, colour, clipboard,
         // and the in-progress drag are shared/transient and live in MainWindow.

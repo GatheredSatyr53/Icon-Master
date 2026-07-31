@@ -941,7 +941,7 @@ namespace winrt::IconMaster::implementation
         }
     }
 
-    void winrt::IconMaster::implementation::MainWindow::OnBrushSizeChanged(IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& args)
+    void winrt::IconMaster::implementation::MainWindow::OnBrushSizeChanged(IInspectable const& sender, [[maybe_unused]] winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& args)
     {
         auto slider = sender.try_as<Slider>();
         if (slider == nullptr)
@@ -1598,7 +1598,7 @@ namespace winrt::IconMaster::implementation
         doc().associatedFile.extension = ext;
         doc().associatedFile.encoder = encoderId;
         doc().associatedFile.isIco = isIco;
-        Tabs().TabItems().GetAt(m_active).as<TabViewItem>().Header(winrt::box_value(file.Name()));
+        Tabs().TabItems().GetAt(static_cast<uint32_t>(m_active)).as<TabViewItem>().Header(winrt::box_value(file.Name()));
         StatusText().Text(L"Saved " + filePath);
         AddToRecent(file);
     }
@@ -1711,7 +1711,7 @@ namespace winrt::IconMaster::implementation
         {
             for (uint32_t x = 0; x < w; ++x)
             {
-                const size_t i = (static_cast<size_t>(y) * w + x) * 4;
+                const winrt::array_view<uint8_t>::size_type i = (static_cast<winrt::array_view<uint8_t>::size_type>(y) * w + x) * 4;
                 const winrt::Windows::UI::Color c{ bytes[i + 3], bytes[i + 2], bytes[i + 1], bytes[i + 0] };
                 context.SetPixel(static_cast<int32_t>(x), static_cast<int32_t>(y), c);
             }

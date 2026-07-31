@@ -15,15 +15,15 @@ namespace winrt::IconMaster::implementation
         UvMeasure Spacing() const { return spacing; }
         void Spacing(UvMeasure const& value) { spacing = value; }
 
-        double AvailableU() const { return availableU; }
-        void AvailableU(double value) { availableU = value; }
+        float AvailableU() const { return availableU; }
+        void AvailableU(float value) { availableU = value; }
 
         WrapItem& GetItemAt(int32_t index);
         void Clear();
         void RemoveFromIndex(int32_t index);
         void SetOrientation(winrt::Microsoft::UI::Xaml::Controls::Orientation orientation);
         void ClearPositions();
-        double GetHeight();
+        float GetHeight();
         void RecycleElementAt(int32_t index) const;
 
     private:
@@ -31,7 +31,7 @@ namespace winrt::IconMaster::implementation
         std::vector<WrapItem> items;
         winrt::Microsoft::UI::Xaml::Controls::Orientation orientation;
         UvMeasure spacing;
-        double availableU;
+        float availableU;
     };
 }
 
