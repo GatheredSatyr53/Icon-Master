@@ -2261,7 +2261,8 @@ namespace winrt::IconMaster::implementation
         }
     }
 
-    // Red cross through the canvas centre, for aligning symmetric artwork.
+    // Cross through the canvas centre, for aligning symmetric artwork. Drawn as an
+    // alternating black/white dash so it stays visible over any colour underneath.
     void MainWindow::OverlayGuides(uint8_t* data, int32_t dw, int32_t dh)
     {
         if (!m_showGuides)
@@ -2275,9 +2276,10 @@ namespace winrt::IconMaster::implementation
         {
             if (dx < 0 || dx >= dw || dy < 0 || dy >= dh) { return; }
             const size_t i = (static_cast<size_t>(dy) * dw + dx) * 4;
-            data[i + 0] = 0x30; // B
-            data[i + 1] = 0x30; // G
-            data[i + 2] = 0xE0; // R
+            const uint8_t v = ((((dx + dy) / 4) & 1) == 0) ? 0x00 : 0xFF;
+            data[i + 0] = v;
+            data[i + 1] = v;
+            data[i + 2] = v;
             data[i + 3] = 0xFF;
         };
 
