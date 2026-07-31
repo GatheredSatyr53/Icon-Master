@@ -7,9 +7,9 @@ namespace IconMaster
     {
         WrapLayout();
 
-        Single HorizontalSpacing;
+        Double HorizontalSpacing;
         static Microsoft.UI.Xaml.DependencyProperty HorizontalSpacingProperty{ get; };
-        Single VerticalSpacing;
+        Double VerticalSpacing;
         static Microsoft.UI.Xaml.DependencyProperty VerticalSpacingProperty{ get; };
         Microsoft.UI.Xaml.Controls.Orientation Orientation;
         static Microsoft.UI.Xaml.DependencyProperty OrientationProperty{ get; };

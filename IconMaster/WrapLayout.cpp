@@ -8,12 +8,14 @@ using namespace IconMaster::literals;
 
 namespace winrt::IconMaster::implementation
 {
-    // The boxed default must match the property type exactly: a boxed double
-    // default on a Single property makes DependencyProperty::Register throw, so
-    // box a float here rather than using the double-producing _obj literal.
-    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, HorizontalSpacing, float, winrt::box_value(0.0f), WrapLayout::OnLayoutPropertyChanged)
+    // Keep these as Double: it is the boxed type XAML supplies for a numeric
+    // attribute and what the _obj default and the getters unbox, so every step
+    // agrees. (A Single property mismatched the boxed-double values and threw
+    // hresult_error while parsing the XAML.) The layout math wants float, so the
+    // narrowing happens at the single point of use below, via a cast.
+    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, HorizontalSpacing, double, 0.0_obj, WrapLayout::OnLayoutPropertyChanged)
 
-    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, VerticalSpacing, float, winrt::box_value(0.0f), WrapLayout::OnLayoutPropertyChanged)
+    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, VerticalSpacing, double, 0.0_obj, WrapLayout::OnLayoutPropertyChanged)
 
     IM_DP_DEFINE(WrapLayout, 
         winrt::IconMaster::WrapLayout, 
@@ -80,7 +82,7 @@ namespace winrt::IconMaster::implementation
     winrt::Windows::Foundation::Size WrapLayout::MeasureOverride(winrt::Microsoft::UI::Xaml::Controls::VirtualizingLayoutContext const& context, winrt::Windows::Foundation::Size const& availableSize)
     {
         UvMeasure parentMeasure(Orientation(), availableSize);
-        UvMeasure spacingMeasure(Orientation(), winrt::Windows::Foundation::Size(HorizontalSpacing(), VerticalSpacing()));
+        UvMeasure spacingMeasure(Orientation(), winrt::Windows::Foundation::Size{ static_cast<float>(HorizontalSpacing()), static_cast<float>(VerticalSpacing()) });
 
         auto state = context.LayoutState().try_as<WrapLayoutState>();
         if (!state)
