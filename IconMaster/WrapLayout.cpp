@@ -8,9 +8,12 @@ using namespace IconMaster::literals;
 
 namespace winrt::IconMaster::implementation
 {
-    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, HorizontalSpacing, float, 0.0_obj, WrapLayout::OnLayoutPropertyChanged)
+    // The boxed default must match the property type exactly: a boxed double
+    // default on a Single property makes DependencyProperty::Register throw, so
+    // box a float here rather than using the double-producing _obj literal.
+    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, HorizontalSpacing, float, winrt::box_value(0.0f), WrapLayout::OnLayoutPropertyChanged)
 
-    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, VerticalSpacing, float, 0.0_obj, WrapLayout::OnLayoutPropertyChanged)
+    IM_DP_DEFINE(WrapLayout, winrt::IconMaster::WrapLayout, VerticalSpacing, float, winrt::box_value(0.0f), WrapLayout::OnLayoutPropertyChanged)
 
     IM_DP_DEFINE(WrapLayout, 
         winrt::IconMaster::WrapLayout, 
