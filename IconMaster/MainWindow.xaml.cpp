@@ -531,6 +531,24 @@ namespace winrt::IconMaster::implementation
     void MainWindow::OnZoomIn(IInspectable const&, RoutedEventArgs const&) { SetZoom(doc().zoom + 4); }
     void MainWindow::OnZoomOut(IInspectable const&, RoutedEventArgs const&) { SetZoom(doc().zoom - 4); }
 
+    void MainWindow::OnToggleGrid(IInspectable const& sender, RoutedEventArgs const&)
+    {
+        if (auto item = sender.try_as<winrt::Microsoft::UI::Xaml::Controls::ToggleMenuFlyoutItem>())
+        {
+            m_showGrid = item.IsChecked();
+        }
+        Render();
+    }
+
+    void MainWindow::OnToggleGuides(IInspectable const& sender, RoutedEventArgs const&)
+    {
+        if (auto item = sender.try_as<winrt::Microsoft::UI::Xaml::Controls::ToggleMenuFlyoutItem>())
+        {
+            m_showGuides = item.IsChecked();
+        }
+        Render();
+    }
+
     void MainWindow::SetZoom(int32_t zoom)
     {
         zoom = std::clamp(zoom, k_minZoom, k_maxZoom);
@@ -2186,14 +2204,16 @@ namespace winrt::IconMaster::implementation
         const size_t i = (static_cast<size_t>(dy) * displayWidth + dx) * 4;
 
         uint8_t b, g, r;
-        if ((dx % doc().zoom == 0) || (dy % doc().zoom == 0))
+        if (m_showGrid && ((dx % doc().zoom == 0) || (dy % doc().zoom == 0)))
         {
             b = g = r = 0xA0; // grid line
         }
         else
         {
-            const int32_t lx = dx / doc().zoom;
-            const int32_t ly = dy / doc().zoom;
+            // Map to a logical pixel, clamping the extra +1 border row/column that
+            // exists only to close the grid (it falls outside the canvas).
+            const int32_t lx = std::min(dx / doc().zoom, doc().context.PixelWidth() - 1);
+            const int32_t ly = std::min(dy / doc().zoom, doc().context.PixelHeight() - 1);
             const winrt::Windows::UI::Color c = doc().context.GetPixel(lx, ly);
             // Composite the (possibly semi-transparent) pixel over the checkerboard
             // so partial alpha - e.g. soft brush edges - is actually visible.
@@ -2239,6 +2259,30 @@ namespace winrt::IconMaster::implementation
                 WriteDisplayPixel(data, dw, dx, dy);
             }
         }
+    }
+
+    // Red cross through the canvas centre, for aligning symmetric artwork.
+    void MainWindow::OverlayGuides(uint8_t* data, int32_t dw, int32_t dh)
+    {
+        if (!m_showGuides)
+        {
+            return;
+        }
+        const int32_t gx = (doc().context.PixelWidth() * doc().zoom) / 2;
+        const int32_t gy = (doc().context.PixelHeight() * doc().zoom) / 2;
+
+        auto put = [&](int32_t dx, int32_t dy)
+        {
+            if (dx < 0 || dx >= dw || dy < 0 || dy >= dh) { return; }
+            const size_t i = (static_cast<size_t>(dy) * dw + dx) * 4;
+            data[i + 0] = 0x30; // B
+            data[i + 1] = 0x30; // G
+            data[i + 2] = 0xE0; // R
+            data[i + 3] = 0xFF;
+        };
+
+        for (int32_t dy = 0; dy < dh; ++dy) { put(gx, dy); }
+        for (int32_t dx = 0; dx < dw; ++dx) { put(dx, gy); }
     }
 
     void MainWindow::OverlayShapePreview(uint8_t* data, int32_t dw, int32_t dh)
@@ -2367,6 +2411,7 @@ namespace winrt::IconMaster::implementation
         // cache everything except the cursor hover preview. RenderHover() can then
         // refresh just the moving outline by blitting the cache instead of redrawing.
         RenderBase(data, dw, dh);
+        OverlayGuides(data, dw, dh);
         if (m_shapeActive)   { OverlayShapePreview(data, dw, dh); }
         if (m_moving)        { OverlayFloating(data, dw, dh); }
         if (doc().hasSelection)  { OverlaySelectionBorder(data, dw, dh); }
