@@ -32,6 +32,8 @@ namespace winrt::IconMaster::implementation
         void OnPaletteElementPrepared(winrt::Microsoft::UI::Xaml::Controls::ItemsRepeater const& sender, winrt::Microsoft::UI::Xaml::Controls::ItemsRepeaterElementPreparedEventArgs const& args);
         void OnZoomIn(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnZoomOut(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnToggleGrid(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnToggleGuides(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnCanvasPointerPressed(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void OnCanvasPointerMoved(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void OnCanvasPointerReleased(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
@@ -139,6 +141,7 @@ namespace winrt::IconMaster::implementation
         void OverlayFloating(uint8_t* data, int32_t dw, int32_t dh);
         void OverlaySelectionBorder(uint8_t* data, int32_t dw, int32_t dh);
         void OverlayBrushPreview(uint8_t* data, int32_t dw, int32_t dh); // hover footprint of Pen/Eraser
+        void OverlayGuides(uint8_t* data, int32_t dw, int32_t dh);       // centre cross guides
         uint8_t* DisplayData();
         void SetZoom(int32_t zoom);
 
@@ -170,6 +173,8 @@ namespace winrt::IconMaster::implementation
         int32_t m_brushSize{ 1 };       // Pen/Eraser/shape footprint, in pixels (square)
         int32_t m_hardness{ 100 };      // edge softness, 0..100 (100 = solid)
         bool m_shapeFilled{ false };    // fill rectangles/ellipses instead of outline only
+        bool m_showGrid{ true };        // draw the per-pixel grid on the canvas
+        bool m_showGuides{ false };     // draw centre cross guides on the canvas
         bool m_suppressColorSync{ false };
 
         // In-progress soft Pen/Eraser stroke: re-composited from the pre-stroke
