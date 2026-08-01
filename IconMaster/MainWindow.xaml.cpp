@@ -1119,9 +1119,15 @@ namespace winrt::IconMaster::implementation
         }
 
         const winrt::Windows::UI::Color target = doc().context.GetPixel(sx, sy);
-        auto same = [](winrt::Windows::UI::Color const& a, winrt::Windows::UI::Color const& b)
+        // Tolerance rides on the Hardness slider: hard (100) = exact match, and
+        // lowering it widens the allowed per-channel colour distance (0..255).
+        const int32_t tol = ((100 - std::clamp(m_hardness, 0, 100)) * 255) / 100;
+        auto same = [tol](winrt::Windows::UI::Color const& a, winrt::Windows::UI::Color const& b)
         {
-            return a.A == b.A && a.R == b.R && a.G == b.G && a.B == b.B;
+            auto ad = [](uint8_t p, uint8_t q) { return p > q ? p - q : q - p; };
+            const int32_t d = std::max(std::max(ad(a.A, b.A), ad(a.R, b.R)),
+                                       std::max(ad(a.G, b.G), ad(a.B, b.B)));
+            return d <= tol;
         };
 
         std::vector<uint8_t> mask(static_cast<size_t>(w) * h, 0);
