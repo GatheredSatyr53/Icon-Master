@@ -296,6 +296,13 @@
                               Data="M2,3 H6 V4 H3 V7 H2 Z M14,3 H10 V4 H13 V7 H14 Z M2,13 H6 V12 H3 V9 H2 Z M14,13 H10 V12 H13 V9 H14 Z" />
                             </RadioButton>
                         </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <RadioButton Tag="wand" GroupName="tools"
+                             Checked="OnToolSelected" ToolTipService.ToolTip="Magic wand (select by colour)">
+                                <PathIcon Width="16" Height="16"
+                              Data="M8,1.5 L9.2,6.3 L14,7.5 L9.2,8.7 L8,13.5 L6.8,8.7 L2,7.5 L6.8,6.3 Z" />
+                            </RadioButton>
+                        </StackPanel>
                     </StackPanel>
 
                     <Border Style="{StaticResource HorizontalDividerStyle}" />

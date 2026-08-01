@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace winrt;
@@ -194,10 +195,11 @@ namespace winrt::IconMaster::implementation
         else if (tag == L"rectangle")  { m_toolKind = ToolKind::Rectangle; }
         else if (tag == L"ellipse")    { m_toolKind = ToolKind::Ellipse; }
         else if (tag == L"select")     { m_toolKind = ToolKind::Select; }
+        else if (tag == L"wand")       { m_toolKind = ToolKind::Wand; }
         else                           { m_toolKind = ToolKind::Pen; }
 
         m_currentShape = ShapeToolForKind(m_toolKind);
-        if (!IsShapeTool(m_toolKind) && m_toolKind != ToolKind::Select)
+        if (!IsShapeTool(m_toolKind) && m_toolKind != ToolKind::Select && m_toolKind != ToolKind::Wand)
         {
             m_currentTool = ToolForKind(m_toolKind);
         }
@@ -615,6 +617,19 @@ namespace winrt::IconMaster::implementation
             return;
         }
 
+        if (m_toolKind == ToolKind::Wand)
+        {
+            if (!left)
+            {
+                return;
+            }
+            int32_t px, py;
+            PointerToPixelClamped(e, px, py);
+            MagicWandSelect(px, py);
+            Render();
+            return;
+        }
+
         if (IsShapeTool(m_toolKind) && left)
         {
             PointerToPixelClamped(e, m_shapeStartX, m_shapeStartY);
@@ -738,6 +753,26 @@ namespace winrt::IconMaster::implementation
             m_moveDX = px - m_moveAnchorX;
             m_moveDY = py - m_moveAnchorY;
             StampFloating(doc().selX + m_moveDX, doc().selY + m_moveDY);
+            // Shift the mask so the selection follows the moved pixels.
+            {
+                const int32_t w = doc().context.PixelWidth();
+                const int32_t h = doc().context.PixelHeight();
+                std::vector<uint8_t> shifted(static_cast<size_t>(w) * h, 0);
+                for (int32_t y = 0; y < h; ++y)
+                {
+                    for (int32_t x = 0; x < w; ++x)
+                    {
+                        if (!Selected(x, y)) { continue; }
+                        const int32_t nx = x + m_moveDX;
+                        const int32_t ny = y + m_moveDY;
+                        if (nx >= 0 && nx < w && ny >= 0 && ny < h)
+                        {
+                            shifted[static_cast<size_t>(ny) * w + nx] = 1;
+                        }
+                    }
+                }
+                doc().selMask = std::move(shifted);
+            }
             doc().selX += m_moveDX;
             doc().selY += m_moveDY;
             m_moving = false;
@@ -1020,11 +1055,42 @@ namespace winrt::IconMaster::implementation
 
     // ---- Selection / clipboard ---------------------------------------------
 
+    bool MainWindow::Selected(int32_t x, int32_t y) const
+    {
+        if (!doc().hasSelection)
+        {
+            return false;
+        }
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        if (x < 0 || x >= w || y < 0 || y >= h)
+        {
+            return false;
+        }
+        const size_t idx = static_cast<size_t>(y) * w + x;
+        return idx < doc().selMask.size() && doc().selMask[idx] != 0;
+    }
+
     bool MainWindow::InsideSelection(int32_t px, int32_t py) const
     {
-        return doc().hasSelection &&
-               px >= doc().selX && px < doc().selX + doc().selW &&
-               py >= doc().selY && py < doc().selY + doc().selH;
+        return Selected(px, py);
+    }
+
+    void MainWindow::FillSelectionRect()
+    {
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        doc().selMask.assign(static_cast<size_t>(w) * h, 0);
+        for (int32_t y = doc().selY; y < doc().selY + doc().selH; ++y)
+        {
+            for (int32_t x = doc().selX; x < doc().selX + doc().selW; ++x)
+            {
+                if (x >= 0 && x < w && y >= 0 && y < h)
+                {
+                    doc().selMask[static_cast<size_t>(y) * w + x] = 1;
+                }
+            }
+        }
     }
 
     void MainWindow::SetSelectionFromPoints(int32_t ax, int32_t ay, int32_t bx, int32_t by)
@@ -1038,15 +1104,81 @@ namespace winrt::IconMaster::implementation
         doc().selW = right - left + 1;
         doc().selH = bottom - top + 1;
         doc().hasSelection = true;
+        FillSelectionRect();
     }
 
-    void MainWindow::ClearRegion(int32_t x, int32_t y, int32_t w, int32_t h)
+    // Flood the contiguous region of pixels matching the clicked colour into the
+    // selection mask; selX/Y/W/H becomes the region's bounding box.
+    void MainWindow::MagicWandSelect(int32_t sx, int32_t sy)
     {
-        for (int32_t j = 0; j < h; ++j)
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        if (sx < 0 || sx >= w || sy < 0 || sy >= h)
         {
-            for (int32_t i = 0; i < w; ++i)
+            return;
+        }
+
+        const winrt::Windows::UI::Color target = doc().context.GetPixel(sx, sy);
+        auto same = [](winrt::Windows::UI::Color const& a, winrt::Windows::UI::Color const& b)
+        {
+            return a.A == b.A && a.R == b.R && a.G == b.G && a.B == b.B;
+        };
+
+        std::vector<uint8_t> mask(static_cast<size_t>(w) * h, 0);
+        std::vector<int32_t> stack;                 // pixel indices (y*w + x)
+        stack.push_back(sy * w + sx);
+        mask[static_cast<size_t>(sy) * w + sx] = 1;
+
+        int32_t minx = sx, miny = sy, maxx = sx, maxy = sy;
+        while (!stack.empty())
+        {
+            const int32_t idx = stack.back();
+            stack.pop_back();
+            const int32_t cx = idx % w;
+            const int32_t cy = idx / w;
+            const int32_t nb[4][2] = { { cx + 1, cy }, { cx - 1, cy }, { cx, cy + 1 }, { cx, cy - 1 } };
+            for (auto const& n : nb)
             {
-                doc().context.SetPixel(x + i, y + j, kTransparent);
+                const int32_t nx = n[0];
+                const int32_t ny = n[1];
+                if (nx < 0 || nx >= w || ny < 0 || ny >= h)
+                {
+                    continue;
+                }
+                const size_t nidx = static_cast<size_t>(ny) * w + nx;
+                if (mask[nidx] || !same(doc().context.GetPixel(nx, ny), target))
+                {
+                    continue;
+                }
+                mask[nidx] = 1;
+                stack.push_back(ny * w + nx);
+                minx = std::min(minx, nx);
+                miny = std::min(miny, ny);
+                maxx = std::max(maxx, nx);
+                maxy = std::max(maxy, ny);
+            }
+        }
+
+        doc().selMask = std::move(mask);
+        doc().selX = minx;
+        doc().selY = miny;
+        doc().selW = maxx - minx + 1;
+        doc().selH = maxy - miny + 1;
+        doc().hasSelection = true;
+    }
+
+    void MainWindow::ClearSelectedPixels()
+    {
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        for (int32_t y = 0; y < h; ++y)
+        {
+            for (int32_t x = 0; x < w; ++x)
+            {
+                if (Selected(x, y))
+                {
+                    doc().context.SetPixel(x, y, kTransparent);
+                }
             }
         }
     }
@@ -1060,10 +1192,15 @@ namespace winrt::IconMaster::implementation
         {
             for (int32_t i = 0; i < m_floatW; ++i)
             {
-                m_floatPixels[static_cast<size_t>(j) * m_floatW + i] = doc().context.GetPixel(doc().selX + i, doc().selY + j);
+                const int32_t gx = doc().selX + i;
+                const int32_t gy = doc().selY + j;
+                if (Selected(gx, gy))
+                {
+                    m_floatPixels[static_cast<size_t>(j) * m_floatW + i] = doc().context.GetPixel(gx, gy);
+                    doc().context.SetPixel(gx, gy, kTransparent);
+                }
             }
         }
-        ClearRegion(doc().selX, doc().selY, doc().selW, doc().selH);
     }
 
     void MainWindow::StampFloating(int32_t atX, int32_t atY)
@@ -1092,6 +1229,7 @@ namespace winrt::IconMaster::implementation
         doc().selY = 0;
         doc().selW = doc().context.PixelWidth();
         doc().selH = doc().context.PixelHeight();
+        FillSelectionRect();
         Render();
     }
 
@@ -1114,7 +1252,12 @@ namespace winrt::IconMaster::implementation
         {
             for (int32_t i = 0; i < m_clipW; ++i)
             {
-                m_clipPixels[static_cast<size_t>(j) * m_clipW + i] = doc().context.GetPixel(doc().selX + i, doc().selY + j);
+                const int32_t gx = doc().selX + i;
+                const int32_t gy = doc().selY + j;
+                if (Selected(gx, gy))
+                {
+                    m_clipPixels[static_cast<size_t>(j) * m_clipW + i] = doc().context.GetPixel(gx, gy);
+                }
             }
         }
         m_hasClip = true;
@@ -1128,7 +1271,7 @@ namespace winrt::IconMaster::implementation
         }
         OnCopy(sender, args);
         PushUndo();
-        ClearRegion(doc().selX, doc().selY, doc().selW, doc().selH);
+        ClearSelectedPixels();
         Render();
     }
 
@@ -1157,6 +1300,7 @@ namespace winrt::IconMaster::implementation
         doc().selY = ty;
         doc().selW = m_clipW;
         doc().selH = m_clipH;
+        FillSelectionRect();
         Render();
     }
 
@@ -1167,7 +1311,7 @@ namespace winrt::IconMaster::implementation
             return;
         }
         PushUndo();
-        ClearRegion(doc().selX, doc().selY, doc().selW, doc().selH);
+        ClearSelectedPixels();
         Render();
     }
 
@@ -2344,12 +2488,22 @@ namespace winrt::IconMaster::implementation
 
     void MainWindow::OverlaySelectionBorder(uint8_t* data, int32_t dw, int32_t dh)
     {
-        const int32_t sx = doc().selX + (m_moving ? m_moveDX : 0);
-        const int32_t sy = doc().selY + (m_moving ? m_moveDY : 0);
-        const int32_t x0 = sx * doc().zoom;
-        const int32_t y0 = sy * doc().zoom;
-        const int32_t x1 = (sx + doc().selW) * doc().zoom;
-        const int32_t y1 = (sy + doc().selH) * doc().zoom;
+        const int32_t z = doc().zoom;
+        const int32_t offX = (m_moving ? m_moveDX : 0);
+        const int32_t offY = (m_moving ? m_moveDY : 0);
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        auto const& mask = doc().selMask;
+        if (static_cast<int32_t>(mask.size()) != w * h)
+        {
+            return;
+        }
+
+        // Read the mask directly (no cross-ABI call per pixel); out-of-bounds is unselected.
+        auto sel = [&](int32_t x, int32_t y) -> bool
+        {
+            return x >= 0 && x < w && y >= 0 && y < h && mask[static_cast<size_t>(y) * w + x] != 0;
+        };
 
         auto put = [&](int32_t dx, int32_t dy)
         {
@@ -2366,8 +2520,24 @@ namespace winrt::IconMaster::implementation
             data[i + 3] = 0xFF;
         };
 
-        for (int32_t dx = x0; dx <= x1; ++dx) { put(dx, y0); put(dx, y1); }
-        for (int32_t dy = y0; dy <= y1; ++dy) { put(x0, dy); put(x1, dy); }
+        // Trace the mask outline: draw an edge wherever a selected pixel borders an
+        // unselected one. For a rectangular selection this is just its outline.
+        for (int32_t y = 0; y < h; ++y)
+        {
+            for (int32_t x = 0; x < w; ++x)
+            {
+                if (!sel(x, y))
+                {
+                    continue;
+                }
+                const int32_t px = (x + offX) * z;
+                const int32_t py = (y + offY) * z;
+                if (!sel(x, y - 1)) { for (int32_t d = 0; d <= z; ++d) { put(px + d, py); } }
+                if (!sel(x, y + 1)) { for (int32_t d = 0; d <= z; ++d) { put(px + d, py + z); } }
+                if (!sel(x - 1, y)) { for (int32_t d = 0; d <= z; ++d) { put(px, py + d); } }
+                if (!sel(x + 1, y)) { for (int32_t d = 0; d <= z; ++d) { put(px + z, py + d); } }
+            }
+        }
     }
 
     void MainWindow::OverlayBrushPreview(uint8_t* data, int32_t dw, int32_t dh)
