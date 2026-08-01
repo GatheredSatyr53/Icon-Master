@@ -116,6 +116,7 @@ namespace winrt::IconMaster::implementation
             int32_t selY{ 0 };
             int32_t selW{ 0 };
             int32_t selH{ 0 };
+            std::vector<uint8_t> selMask; // per-pixel selection (w*h, 1 = selected); selX/Y/W/H is its bounding box
             std::vector<Snapshot> undo;
             std::vector<Snapshot> redo;
             winrt::hstring title;
@@ -128,7 +129,7 @@ namespace winrt::IconMaster::implementation
         void RestoreSnapshot(Snapshot const& snap);
         void PushUndo();
         void ClearHistory();
-        enum class ToolKind { Pen, Eraser, Fill, Eyedropper, Line, Rectangle, Ellipse, Select };
+        enum class ToolKind { Pen, Eraser, Fill, Eyedropper, Line, Rectangle, Ellipse, Select, Wand };
 
         // Rendering.
         void RebuildDisplay();
@@ -159,10 +160,13 @@ namespace winrt::IconMaster::implementation
 
         // Selection / clipboard.
         bool InsideSelection(int32_t px, int32_t py) const;
+        bool Selected(int32_t x, int32_t y) const;                    // is the pixel in the current selection mask
         void SetSelectionFromPoints(int32_t ax, int32_t ay, int32_t bx, int32_t by);
+        void FillSelectionRect();                                     // set the mask to the whole selX/Y/W/H rectangle
+        void MagicWandSelect(int32_t x, int32_t y);                   // select the contiguous same-colour region
+        void ClearSelectedPixels();                                   // clear (to transparent) every masked pixel
         void LiftSelection();
         void StampFloating(int32_t atX, int32_t atY);
-        void ClearRegion(int32_t x, int32_t y, int32_t w, int32_t h);
 
         static constexpr int32_t k_canvasSize = 32;
         static constexpr int32_t k_minZoom = 4;
