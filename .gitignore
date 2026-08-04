@@ -69,3 +69,5 @@ _pkginfo.txt
 ## OS files
 Thumbs.db
 .DS_Store
+
+*.xcf
