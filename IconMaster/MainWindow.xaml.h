@@ -101,7 +101,7 @@ namespace winrt::IconMaster::implementation
         void RebuildPaletteUI();                                      // rebuild the swatch rows from m_palette
         void SavePalette();                                           // persist m_palette to LocalSettings
         void LoadPalette();                                           // load m_palette from LocalSettings
-        static winrt::hstring ColorToHex(winrt::Windows::UI::Color const& c); // "#AARRGGBB"
+        static std::wstring ColorToHex(winrt::Windows::UI::Color const& c); // "#AARRGGBB"
         static winrt::Windows::UI::Color HexToColor(std::wstring_view hex);   // parse "#AARRGGBB"
 
         // A single layer: its own pixel grid plus display properties. Drawing tools
