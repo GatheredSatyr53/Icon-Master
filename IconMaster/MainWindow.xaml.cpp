@@ -14,6 +14,7 @@
 #include <winrt/Windows.Storage.Pickers.h>
 #include <winrt/Windows.Storage.Streams.h>
 #include <winrt/Windows.UI.StartScreen.h>
+#include <winrt/Windows.System.h>
 #include <microsoft.ui.xaml.window.h>
 #include <shobjidl_core.h>
 #include <robuffer.h>
@@ -71,6 +72,20 @@ namespace
         return winrt::Windows::UI::Color{
             static_cast<uint8_t>(std::clamp(static_cast<int>(std::lround(outA * 255.0)), 0, 255)),
             ch(src.R, dst.R), ch(src.G, dst.G), ch(src.B, dst.B) };
+    }
+
+    // Depth-first search for the first TextBox under a visual-tree node (the inline
+    // rename box inside a realized layer row).
+    winrt::Microsoft::UI::Xaml::Controls::TextBox FindEditTextBox(winrt::Microsoft::UI::Xaml::DependencyObject const& root)
+    {
+        namespace MUX = winrt::Microsoft::UI::Xaml;
+        if (auto tb = root.try_as<MUX::Controls::TextBox>()) { return tb; }
+        const int32_t n = MUX::Media::VisualTreeHelper::GetChildrenCount(root);
+        for (int32_t i = 0; i < n; ++i)
+        {
+            if (auto tb = FindEditTextBox(MUX::Media::VisualTreeHelper::GetChild(root, i))) { return tb; }
+        }
+        return nullptr;
     }
 
     // Soft erase: reduce the destination alpha by coverage.
@@ -744,6 +759,94 @@ namespace winrt::IconMaster::implementation
         if (layerIndex >= doc().layers.size()) { return; }
         doc().layers[layerIndex].visible = item.Visible();
         Render();
+    }
+
+    void MainWindow::OnLayerListKeyDown(IInspectable const&, winrt::Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args)
+    {
+        if (args.Key() != winrt::Windows::System::VirtualKey::F2) { return; }
+        const int32_t sel = LayerListView().SelectedIndex();
+        if (sel < 0 || static_cast<uint32_t>(sel) >= m_layerItems.Size()) { return; }
+        BeginLayerRename(m_layerItems.GetAt(static_cast<uint32_t>(sel)));
+        args.Handled(true);
+    }
+
+    void MainWindow::BeginLayerRename(winrt::IconMaster::LayerItem const& item)
+    {
+        if (!item) { return; }
+        m_renameOriginal = item.Name();
+        item.Editing(true);
+
+        // Focus + select the edit box once the template has switched it visible.
+        auto lifetime = get_strong();
+        DispatcherQueue().TryEnqueue([lifetime, this, item]()
+        {
+            auto container = LayerListView().ContainerFromItem(item);
+            if (!container) { return; }
+            if (auto tb = FindEditTextBox(container))
+            {
+                tb.Focus(winrt::Microsoft::UI::Xaml::FocusState::Programmatic);
+                tb.SelectAll();
+            }
+        });
+    }
+
+    void MainWindow::CommitLayerRename(winrt::IconMaster::LayerItem const& item, bool apply)
+    {
+        if (!item || !item.Editing()) { return; } // already finished (avoids double commit)
+        item.Editing(false);
+
+        if (!apply)
+        {
+            item.Name(m_renameOriginal); // cancel: restore the original name
+            return;
+        }
+
+        // Trim; an empty name reverts to the original.
+        std::wstring text{ item.Name() };
+        const size_t b = text.find_first_not_of(L" \t");
+        const size_t e = text.find_last_not_of(L" \t");
+        if (b == std::wstring::npos)
+        {
+            item.Name(m_renameOriginal);
+            return;
+        }
+        const winrt::hstring name{ text.substr(b, e - b + 1) };
+        item.Name(name); // normalise the displayed text
+
+        if (name == m_renameOriginal) { return; }
+
+        uint32_t vmIndex = 0;
+        if (!m_layerItems.IndexOf(item, vmIndex)) { return; }
+        const size_t layerIndex = doc().layers.size() - 1 - static_cast<size_t>(vmIndex);
+        if (layerIndex >= doc().layers.size()) { return; }
+        PushUndo();
+        doc().layers[layerIndex].name = name;
+    }
+
+    void MainWindow::OnLayerNameKeyDown(IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args)
+    {
+        auto tb = sender.try_as<winrt::Microsoft::UI::Xaml::Controls::TextBox>();
+        if (!tb) { return; }
+        auto item = tb.DataContext().try_as<winrt::IconMaster::LayerItem>();
+        if (!item) { return; }
+        if (args.Key() == winrt::Windows::System::VirtualKey::Enter)
+        {
+            CommitLayerRename(item, true);
+            args.Handled(true);
+        }
+        else if (args.Key() == winrt::Windows::System::VirtualKey::Escape)
+        {
+            CommitLayerRename(item, false);
+            args.Handled(true);
+        }
+    }
+
+    void MainWindow::OnLayerNameCommit(IInspectable const& sender, RoutedEventArgs const&)
+    {
+        auto tb = sender.try_as<winrt::Microsoft::UI::Xaml::Controls::TextBox>();
+        if (!tb) { return; }
+        auto item = tb.DataContext().try_as<winrt::IconMaster::LayerItem>();
+        if (item) { CommitLayerRename(item, true); }
     }
 
     void MainWindow::SetZoom(int32_t zoom)

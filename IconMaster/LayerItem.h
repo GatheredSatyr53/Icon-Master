@@ -14,6 +14,20 @@ namespace winrt::IconMaster::implementation
         bool Visible() const { return m_visible; }
         void Visible(bool value);
 
+        bool Editing() const { return m_editing; }
+        void Editing(bool value);
+
+        winrt::Microsoft::UI::Xaml::Visibility NameVisibility() const
+        {
+            return m_editing ? winrt::Microsoft::UI::Xaml::Visibility::Collapsed
+                             : winrt::Microsoft::UI::Xaml::Visibility::Visible;
+        }
+        winrt::Microsoft::UI::Xaml::Visibility EditVisibility() const
+        {
+            return m_editing ? winrt::Microsoft::UI::Xaml::Visibility::Visible
+                             : winrt::Microsoft::UI::Xaml::Visibility::Collapsed;
+        }
+
         winrt::event_token PropertyChanged(winrt::Microsoft::UI::Xaml::Data::PropertyChangedEventHandler const& handler)
         {
             return m_propertyChanged.add(handler);
@@ -28,6 +42,7 @@ namespace winrt::IconMaster::implementation
 
         winrt::hstring m_name;
         bool m_visible{ true };
+        bool m_editing{ false };
         winrt::event<winrt::Microsoft::UI::Xaml::Data::PropertyChangedEventHandler> m_propertyChanged;
     };
 }

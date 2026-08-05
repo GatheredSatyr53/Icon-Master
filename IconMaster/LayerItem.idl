@@ -7,5 +7,10 @@ namespace IconMaster
         LayerItem(String name, Boolean visible);
         String Name;
         Boolean Visible;
+
+        // Inline rename: Editing swaps the name label for a text box in the template.
+        Boolean Editing;
+        Microsoft.UI.Xaml.Visibility NameVisibility{ get; };
+        Microsoft.UI.Xaml.Visibility EditVisibility{ get; };
     }
 }

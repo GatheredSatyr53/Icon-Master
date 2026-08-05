@@ -44,6 +44,9 @@ namespace winrt::IconMaster::implementation
         void OnLayerOpacityChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& args);
         void OnLayerSelectionChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& args);
         void OnLayerItemPropertyChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Data::PropertyChangedEventArgs const& args);
+        void OnLayerListKeyDown(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args);
+        void OnLayerNameKeyDown(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args);
+        void OnLayerNameCommit(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnCanvasPointerPressed(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void OnCanvasPointerMoved(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void OnCanvasPointerReleased(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
@@ -174,6 +177,8 @@ namespace winrt::IconMaster::implementation
         void FlattenActive();                                            // fill m_flat with the composited canvas (for rendering)
         void RebuildLayersUI();                                          // rebuild the layer list + opacity slider
         winrt::IconMaster::DrawingContext NewLayerContext();             // an empty context matching the canvas size
+        void BeginLayerRename(winrt::IconMaster::LayerItem const& item); // start inline rename of a layer row
+        void CommitLayerRename(winrt::IconMaster::LayerItem const& item, bool apply); // finish rename (apply or cancel)
         enum class ToolKind { Pen, Eraser, Fill, Eyedropper, Line, Rectangle, Ellipse, Select, Wand };
 
         // Rendering.
@@ -278,6 +283,7 @@ namespace winrt::IconMaster::implementation
         // Bound to the Layers ListView; mirrors doc().layers, topmost first.
         winrt::Windows::Foundation::Collections::IObservableVector<winrt::IconMaster::LayerItem> m_layerItems{
             winrt::single_threaded_observable_vector<winrt::IconMaster::LayerItem>() };
+        winrt::hstring m_renameOriginal; // layer name captured when an inline rename begins
         int32_t m_docCounter{ 0 };     // for default document titles
 
         // Remembered "New icon" dialog choices.
