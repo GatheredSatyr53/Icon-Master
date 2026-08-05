@@ -17,9 +17,15 @@
         <Setter Property="Padding" Value="16" />
     </Style>
 
+    <Style x:Key="WorkspacePanelSectionHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
     <Style x:Key="ToolbarScrollPanelStyle" TargetType="ScrollViewer">
         <Setter Property="HorizontalScrollMode" Value="Disabled" />
         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
     </Style>
     
     <Style x:Key="ToolButtonStyle" TargetType="RadioButton">
