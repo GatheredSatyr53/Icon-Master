@@ -125,6 +125,7 @@
     <ClInclude Include="LineTool.h" />
     <ClInclude Include="RectangleTool.h" />
     <ClInclude Include="EllipseTool.h" />
+    <ClInclude Include="LayerItem.h" />
     <ClInclude Include="StringFormatConverter.h" />
     <ClInclude Include="typehelpers.h" />
     <ClInclude Include="UvBounds.h" />
@@ -155,12 +156,14 @@
     <ClCompile Include="RectangleTool.cpp" />
     <ClCompile Include="EllipseTool.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClCompile Include="LayerItem.cpp" />
     <ClCompile Include="StringFormatConverter.cpp" />
     <ClCompile Include="WrapLayout.cpp" />
     <ClCompile Include="WrapLayoutState.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Midl Include="Editor.idl" />
+    <Midl Include="LayerItem.idl" />
     <Midl Include="MainWindow.idl" />
     <Midl Include="SizeInput.idl" />
     <Midl Include="StringFormatConverter.idl" />
@@ -205,6 +208,10 @@
     <ResourceCompile Include="IconMaster.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="Assets\opacity.svg">
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+    </Image>
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,0 +1,16 @@
+namespace IconMaster
+{
+    // View-model for one row of the Layers list. Bound in MainWindow.xaml.
+    [default_interface]
+    runtimeclass LayerItem : Microsoft.UI.Xaml.Data.INotifyPropertyChanged
+    {
+        LayerItem(String name, Boolean visible);
+        String Name;
+        Boolean Visible;
+
+        // Inline rename: Editing swaps the name label for a text box in the template.
+        Boolean Editing;
+        Microsoft.UI.Xaml.Visibility NameVisibility{ get; };
+        Microsoft.UI.Xaml.Visibility EditVisibility{ get; };
+    }
+}

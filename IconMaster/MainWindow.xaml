@@ -27,8 +27,8 @@
         </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
@@ -235,7 +235,7 @@
             <!-- Toolbox -->
             <ScrollViewer
                       Style="{StaticResource ToolbarScrollPanelStyle}"
-                      VerticalScrollBarVisibility="Auto">
+                      >
                 <StackPanel Spacing="12" Width="104" >
                     <StackPanel.Resources>
                         <!-- Compact, icon-only toolbar buttons. Labels live in tooltips. -->
@@ -364,6 +364,7 @@
                 <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="{ThemeResource LayerFillColorDefault}"/>
             </TabView.Resources>
         </TabView>
+
         <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource WorkspacePanelStyle}">
             <!-- Canvas area -->
             <Grid RowSpacing="8" BorderBrush="Transparent">
@@ -381,8 +382,7 @@
 
                 <ScrollViewer Grid.Row="1"
                           ZoomMode="Disabled"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto"
+                          Style="{StaticResource ToolbarScrollPanelStyle}"
                           HorizontalScrollMode="Auto"
                           VerticalScrollMode="Auto"
                           Background="#FF808080">
@@ -401,45 +401,138 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="1" Grid.Column="2" Grid.RowSpan="2" Style="{StaticResource WorkspacePanelStyle}">
-            <!-- Palette -->
-            <StackPanel Spacing="8">
-                <Grid RowSpacing="4">
+        <Grid Grid.Row="1" Grid.Column="2" Grid.RowSpan="2" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="4*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource WorkspacePanelStyle}">
+                <!-- Palette -->
+                <Grid RowSpacing="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Standard palette" Style="{StaticResource CaptionTextBlockStyle}"
-                               VerticalAlignment="Center" />
+                    <Grid Grid.Row="0" RowSpacing="4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Standard palette" Style="{StaticResource WorkspacePanelSectionHeaderStyle}" />
 
-                    <!-- Same ItemsRepeater + WrapLayout as the custom palette so both
+                        <!-- Same ItemsRepeater + WrapLayout as the custom palette so both
                          read as one control; the preset colours are seeded in code. -->
-                    <ScrollViewer Grid.Row="1"
+                        <ScrollViewer Grid.Row="1"
                                   MaxWidth="320" HorizontalAlignment="Left"
                                   Padding="1,0,0,0"
-                                  HorizontalScrollMode="Disabled"
-                                  HorizontalScrollBarVisibility="Disabled"
-                                  VerticalScrollBarVisibility="Disabled">
-                        <ItemsRepeater x:Name="StandardPaletteRepeater"
+                                  Style="{StaticResource ToolbarScrollPanelStyle}">
+                            <ItemsRepeater x:Name="StandardPaletteRepeater"
                                        ElementPrepared="OnPaletteElementPrepared"
                                        Tapped="OnPaletteSwatchTapped">
-                            <ItemsRepeater.Layout>
-                                <local:WrapLayout HorizontalSpacing="6" VerticalSpacing="6"
+                                <ItemsRepeater.Layout>
+                                    <local:WrapLayout HorizontalSpacing="6" VerticalSpacing="6"
                                                   Orientation="Horizontal" />
-                            </ItemsRepeater.Layout>
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Width="20" Height="20" />
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
+                                </ItemsRepeater.Layout>
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="20" Height="20" />
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                        </ScrollViewer>
+                    </Grid>
+
+                    <Border Grid.Row="1" Style="{StaticResource HorizontalDividerStyle}" />
+
+                    <Grid Grid.Row="2" RowSpacing="4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Custom palette" Style="{StaticResource WorkspacePanelSectionHeaderStyle}" />
+                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right">
+                            <Button Click="OnPaletteAdd" Padding="4" ToolTipService.ToolTip="Add current colour">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE710;" FontSize="14" />
+                            </Button>
+                            <Button Click="OnPaletteFromImage" Padding="4" ToolTipService.ToolTip="Extract from image">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xEB9F;" FontSize="14" />
+                            </Button>
+                            <Button Click="OnPaletteLoad" Padding="4" ToolTipService.ToolTip="Load palette…">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8E5;" FontSize="14" />
+                            </Button>
+                            <Button Click="OnPaletteSave" Padding="4" ToolTipService.ToolTip="Save palette…">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74E;" FontSize="14" />
+                            </Button>
+                            <Button Click="OnPaletteClear" Padding="4" ToolTipService.ToolTip="Clear palette">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74D;" FontSize="14" />
+                            </Button>
+                        </StackPanel>
+                        <!-- MaxWidth gives the WrapLayout a finite width to wrap within: the
+                         palette lives in an Auto-width column, which otherwise measures its
+                         content with an infinite width and the swatches never wrap. -->
+                        <ScrollViewer Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                  MaxHeight="220" MaxWidth="320" HorizontalAlignment="Left"
+                                  Padding="1,0,0,0"
+                                  Style="{StaticResource ToolbarScrollPanelStyle}">
+                            <ItemsRepeater x:Name="PaletteRepeater"
+                                       ElementPrepared="OnPaletteElementPrepared"
+                                       Tapped="OnPaletteSwatchTapped"
+                                       RightTapped="OnPaletteSwatchRightTapped">
+                                <ItemsRepeater.Layout>
+                                    <!-- 6px gap = the standard palette's 4px spacing plus the 2px
+                                     Button border that wraps each standard swatch, so the bare
+                                     Border swatches line up 12-per-row like the standard palette. -->
+                                    <local:WrapLayout HorizontalSpacing="6" VerticalSpacing="6"
+                                                  Orientation="Horizontal" />
+                                </ItemsRepeater.Layout>
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="20" Height="20" />
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                        </ScrollViewer>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" x:Name="PaletteEmptyHint"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                TextWrapping="Wrap">
+                        <Run>No custom colours yet. </Run>
+                        <LineBreak/>
+                        <Run>Use + to add the current colour, or extract from the image.</Run>
+                        </TextBlock>
+                    </Grid>
+
+                    <Border Grid.Row="3" Style="{StaticResource HorizontalDividerStyle}" />
+
+                    <ScrollViewer Grid.Row="4"
+          Style="{StaticResource ToolbarScrollPanelStyle}" 
+          >
+                        <ColorPicker x:Name="ColorPickerControl"
+                         IsAlphaEnabled="True"
+                         IsMoreButtonVisible="True"
+                         ColorSpectrumShape="Box"
+                         ColorChanged="OnColorChanged"
+                         />
                     </ScrollViewer>
                 </Grid>
+            </Border>
 
-                <Border Style="{StaticResource HorizontalDividerStyle}" />
-
+            <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource WorkspacePanelStyle}">
                 <Grid RowSpacing="4">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"/>
                         <RowDefinition Height="auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="auto"/>
@@ -448,72 +541,71 @@
                         <ColumnDefinition/>
                         <ColumnDefinition/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Custom palette" Style="{StaticResource CaptionTextBlockStyle}"
-               VerticalAlignment="Center" />
-                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right">
-                        <Button Click="OnPaletteAdd" Padding="4" ToolTipService.ToolTip="Add current colour">
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE710;" FontSize="14" />
-                        </Button>
-                        <Button Click="OnPaletteFromImage" Padding="4" ToolTipService.ToolTip="Extract from image">
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xEB9F;" FontSize="14" />
-                        </Button>
-                        <Button Click="OnPaletteLoad" Padding="4" ToolTipService.ToolTip="Load palette…">
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8E5;" FontSize="14" />
-                        </Button>
-                        <Button Click="OnPaletteSave" Padding="4" ToolTipService.ToolTip="Save palette…">
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74E;" FontSize="14" />
-                        </Button>
-                        <Button Click="OnPaletteClear" Padding="4" ToolTipService.ToolTip="Clear palette">
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74D;" FontSize="14" />
-                        </Button>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Layers" Style="{StaticResource WorkspacePanelSectionHeaderStyle}" />
+                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8"  HorizontalAlignment="Right">
+                        <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Left">
+                            <Button Click="OnLayerAdd" Padding="4" ToolTipService.ToolTip="Add layer">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE710;" FontSize="14" />
+                            </Button>
+                            <Button Click="OnLayerDelete" Padding="4" ToolTipService.ToolTip="Delete layer">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74D;" FontSize="14" />
+                            </Button>
+                            <Button Click="OnLayerMoveUp" Padding="4" ToolTipService.ToolTip="Move layer up">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE70E;" FontSize="14" />
+                            </Button>
+                            <Button Click="OnLayerMoveDown" Padding="4" ToolTipService.ToolTip="Move layer down">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE70D;" FontSize="14" />
+                            </Button>
+                            <Button Click="OnLayerMergeDown" Padding="4" ToolTipService.ToolTip="Merge down">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74B;" FontSize="14" />
+                            </Button>
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6">
+                            <ImageIcon Width="32" Height="32">
+                                <ImageIcon.Source>
+                                    <SvgImageSource UriSource="ms-appx:///Assets/opacity.svg"
+                        RasterizePixelWidth="32"
+                        RasterizePixelHeight="32"/>
+                                </ImageIcon.Source>
+                            </ImageIcon>
+                            <Slider x:Name="LayerOpacity" Width="78" HorizontalAlignment="Right"
+                                    Minimum="0" Maximum="100" StepFrequency="1" Value="100"
+                                    ValueChanged="OnLayerOpacityChanged"
+                                    ToolTipService.ToolTip="Active layer opacity" />
+                        </StackPanel>
                     </StackPanel>
-                    <!-- MaxWidth gives the WrapLayout a finite width to wrap within: the
-                         palette lives in an Auto-width column, which otherwise measures its
-                         content with an infinite width and the swatches never wrap. -->
-                    <ScrollViewer Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                                  MaxHeight="220" MaxWidth="320" HorizontalAlignment="Left"
-                                  Padding="1,0,0,0"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollMode="Disabled"
-                                  HorizontalScrollBarVisibility="Disabled">
-                        <ItemsRepeater x:Name="PaletteRepeater"
-                                       ElementPrepared="OnPaletteElementPrepared"
-                                       Tapped="OnPaletteSwatchTapped"
-                                       RightTapped="OnPaletteSwatchRightTapped">
-                            <ItemsRepeater.Layout>
-                                <!-- 6px gap = the standard palette's 4px spacing plus the 2px
-                                     Button border that wraps each standard swatch, so the bare
-                                     Border swatches line up 12-per-row like the standard palette. -->
-                                <local:WrapLayout HorizontalSpacing="6" VerticalSpacing="6"
-                                                  Orientation="Horizontal" />
-                            </ItemsRepeater.Layout>
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Width="20" Height="20" />
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
-                    </ScrollViewer>
-                    <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" x:Name="PaletteEmptyHint"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                TextWrapping="Wrap">
-                        <Run>No custom colours yet. </Run>
-                        <LineBreak/>
-                        <Run>Use + to add the current colour, or extract from the image.</Run>
-                    </TextBlock>
+                    <ListView x:Name="LayerListView" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                              MaxHeight="360" SelectionMode="Single" Margin="0" Padding="0" BorderThickness="0"
+                              SelectionChanged="OnLayerSelectionChanged" KeyDown="OnLayerListKeyDown"
+                              IsDoubleTapEnabled="True"
+                              DoubleTapped="OnLayerListDoubleTapped"
+                              ItemContainerStyle="{StaticResource WorkspacePanelListItem}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:LayerItem">
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleButton Grid.Column="0" MinWidth="0"
+                                                  IsChecked="{x:Bind Visible, Mode=TwoWay}"
+                                                  ToolTipService.ToolTip="Show / hide layer">
+                                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7B3;" FontSize="14" />
+                                    </ToggleButton>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind Name, Mode=OneWay}"
+                                               Visibility="{x:Bind NameVisibility, Mode=OneWay}"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <TextBox Grid.Column="1" Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             Visibility="{x:Bind EditVisibility, Mode=OneWay}"
+                                             VerticalAlignment="Center" MinHeight="0" Padding="4,2"
+                                             KeyDown="OnLayerNameKeyDown" LostFocus="OnLayerNameCommit" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
                 </Grid>
-
-                <Border Style="{StaticResource HorizontalDividerStyle}" />
-
-                <ColorPicker x:Name="ColorPickerControl"
-                         IsAlphaEnabled="True"
-                         IsMoreButtonVisible="True"
-                         ColorSpectrumShape="Box"
-                         ColorChanged="OnColorChanged"
-                         />
-            </StackPanel>
-        </Border>
+            </Border>
+        </Grid>
 
         <!-- Dialogs. Declared in the tree so they inherit the XamlRoot and pick up
              the merged styles; they render nothing until ShowAsync is called. -->
