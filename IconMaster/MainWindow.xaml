@@ -569,23 +569,16 @@
                         </StackPanel>
                     </StackPanel>
                     <ListView x:Name="LayerListView" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-                              MaxHeight="360" SelectionMode="Single"
-                              SelectionChanged="OnLayerSelectionChanged">
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="Padding" Value="4,2" />
-                                <Setter Property="MinHeight" Value="0" />
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            </Style>
-                        </ListView.ItemContainerStyle>
+                              MaxHeight="360" SelectionMode="Single" Margin="0" Padding="0" BorderThickness="0"
+                              SelectionChanged="OnLayerSelectionChanged" ItemContainerStyle="{StaticResource WorkspacePanelListItem}">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="local:LayerItem">
-                                <Grid ColumnSpacing="6">
+                                <Grid ColumnSpacing="8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <ToggleButton Grid.Column="0" MinWidth="0" Padding="6,2"
+                                    <ToggleButton Grid.Column="0" MinWidth="0"
                                                   IsChecked="{x:Bind Visible, Mode=TwoWay}"
                                                   ToolTipService.ToolTip="Show / hide layer">
                                         <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7B3;" FontSize="14" />
