@@ -761,13 +761,23 @@ namespace winrt::IconMaster::implementation
         Render();
     }
 
+    bool MainWindow::TryBeginLayerRename()
+    {
+        const int32_t sel = LayerListView().SelectedIndex();
+        if (sel < 0 || static_cast<uint32_t>(sel) >= m_layerItems.Size()) { return false; }
+        BeginLayerRename(m_layerItems.GetAt(static_cast<uint32_t>(sel)));
+        return true;
+    }
+
     void MainWindow::OnLayerListKeyDown(IInspectable const&, winrt::Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args)
     {
         if (args.Key() != winrt::Windows::System::VirtualKey::F2) { return; }
-        const int32_t sel = LayerListView().SelectedIndex();
-        if (sel < 0 || static_cast<uint32_t>(sel) >= m_layerItems.Size()) { return; }
-        BeginLayerRename(m_layerItems.GetAt(static_cast<uint32_t>(sel)));
-        args.Handled(true);
+        args.Handled(TryBeginLayerRename());
+    }
+
+    void MainWindow::OnLayerListDoubleTapped(winrt::Windows::Foundation::IInspectable const&, winrt::Microsoft::UI::Xaml::Input::DoubleTappedRoutedEventArgs const& args)
+    {
+        args.Handled(TryBeginLayerRename());
     }
 
     void MainWindow::BeginLayerRename(winrt::IconMaster::LayerItem const& item)

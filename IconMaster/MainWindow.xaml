@@ -561,7 +561,13 @@
                             </Button>
                         </StackPanel>
                         <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="Opacity" VerticalAlignment="Center" />
+                            <ImageIcon Width="32" Height="32">
+                                <ImageIcon.Source>
+                                    <SvgImageSource UriSource="ms-appx:///Assets/opacity.svg"
+                        RasterizePixelWidth="32"
+                        RasterizePixelHeight="32"/>
+                                </ImageIcon.Source>
+                            </ImageIcon>
                             <Slider x:Name="LayerOpacity" Width="78" HorizontalAlignment="Right"
                                     Minimum="0" Maximum="100" StepFrequency="1" Value="100"
                                     ValueChanged="OnLayerOpacityChanged"
@@ -571,6 +577,8 @@
                     <ListView x:Name="LayerListView" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
                               MaxHeight="360" SelectionMode="Single" Margin="0" Padding="0" BorderThickness="0"
                               SelectionChanged="OnLayerSelectionChanged" KeyDown="OnLayerListKeyDown"
+                              IsDoubleTapEnabled="True"
+                              DoubleTapped="OnLayerListDoubleTapped"
                               ItemContainerStyle="{StaticResource WorkspacePanelListItem}">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="local:LayerItem">
