@@ -568,10 +568,34 @@
                                     ToolTipService.ToolTip="Active layer opacity" />
                         </StackPanel>
                     </StackPanel>
-                    <ScrollViewer Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" MaxHeight="360" 
-                              Style="{StaticResource ToolbarScrollPanelStyle}">
-                        <StackPanel x:Name="LayerList" Spacing="2" />
-                    </ScrollViewer>
+                    <ListView x:Name="LayerListView" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                              MaxHeight="360" SelectionMode="Single"
+                              SelectionChanged="OnLayerSelectionChanged">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="Padding" Value="4,2" />
+                                <Setter Property="MinHeight" Value="0" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:LayerItem">
+                                <Grid ColumnSpacing="6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleButton Grid.Column="0" MinWidth="0" Padding="6,2"
+                                                  IsChecked="{x:Bind Visible, Mode=TwoWay}"
+                                                  ToolTipService.ToolTip="Show / hide layer">
+                                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7B3;" FontSize="14" />
+                                    </ToggleButton>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind Name, Mode=OneWay}"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
                 </Grid>
             </Border>
         </Grid>

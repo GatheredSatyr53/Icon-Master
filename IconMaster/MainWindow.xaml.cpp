@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "MainWindow.xaml.h"
+#include "LayerItem.h"
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
 #endif
@@ -151,6 +152,7 @@ namespace winrt::IconMaster::implementation
         RebuildPaletteUI();
 
         RebuildDisplay();
+        LayerListView().ItemsSource(m_layerItems);
         RebuildLayersUI();
         RebuildRecentMenu(); // populate from the persisted most-recently-used list
         UpdateJumpListAsync(); // refresh the taskbar jump list from the same list
@@ -613,68 +615,21 @@ namespace winrt::IconMaster::implementation
     {
         m_updatingLayers = true;
 
-        auto list = LayerList();
-        list.Children().Clear();
-
-        // Top of the stack (last index) first, so the panel reads like other editors.
+        // Mirror doc().layers into the bound collection, topmost layer first so the
+        // ListView (and its XAML item template) reads like other editors.
+        m_layerItems.Clear();
         for (size_t k = doc().layers.size(); k-- > 0; )
         {
             auto const& layer = doc().layers[k];
-            const bool active = (k == doc().activeLayer);
-
-            Grid row;
-            row.ColumnSpacing(4);
-            {
-                winrt::Microsoft::UI::Xaml::Controls::ColumnDefinition c0;
-                winrt::Microsoft::UI::Xaml::Controls::ColumnDefinition c1;
-                c0.Width(winrt::Microsoft::UI::Xaml::GridLengthHelper::FromValueAndType(0, winrt::Microsoft::UI::Xaml::GridUnitType::Auto));
-                c1.Width(winrt::Microsoft::UI::Xaml::GridLengthHelper::FromValueAndType(1, winrt::Microsoft::UI::Xaml::GridUnitType::Star));
-                row.ColumnDefinitions().Append(c0);
-                row.ColumnDefinitions().Append(c1);
-            }
-
-            winrt::Microsoft::UI::Xaml::Controls::Primitives::ToggleButton eye;
-            eye.Tag(winrt::box_value(static_cast<int32_t>(k)));
-            eye.IsChecked(layer.visible);
-            eye.Padding(winrt::Microsoft::UI::Xaml::ThicknessHelper::FromLengths(6, 2, 6, 2));
-            eye.MinWidth(0);
-            {
-                FontIcon icon;
-                icon.FontFamily(winrt::Microsoft::UI::Xaml::Media::FontFamily{ L"Segoe MDL2 Assets" });
-                icon.Glyph(L""); // eye
-                icon.FontSize(14);
-                icon.Opacity(layer.visible ? 1.0 : 0.35);
-                eye.Content(icon);
-            }
-            eye.Click({ this, &MainWindow::OnLayerVisibilityToggled });
-            ToolTipService::SetToolTip(eye, winrt::box_value(winrt::hstring{ L"Show / hide layer" }));
-            Grid::SetColumn(eye, 0);
-
-            Button select;
-            select.Tag(winrt::box_value(static_cast<int32_t>(k)));
-            select.Content(winrt::box_value(layer.name));
-            select.HorizontalAlignment(winrt::Microsoft::UI::Xaml::HorizontalAlignment::Stretch);
-            select.HorizontalContentAlignment(winrt::Microsoft::UI::Xaml::HorizontalAlignment::Left);
-            select.Padding(winrt::Microsoft::UI::Xaml::ThicknessHelper::FromLengths(8, 4, 8, 4));
-            if (active)
-            {
-                select.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{
-                    winrt::Windows::UI::Color{ 0x40, 0x00, 0x78, 0xD7 } });
-            }
-            else
-            {
-                select.Background(nullptr);
-            }
-            select.Click({ this, &MainWindow::OnLayerSelect });
-            Grid::SetColumn(select, 1);
-
-            row.Children().Append(eye);
-            row.Children().Append(select);
-            list.Children().Append(row);
+            auto item = winrt::make<LayerItem>(layer.name, layer.visible);
+            item.PropertyChanged({ this, &MainWindow::OnLayerItemPropertyChanged });
+            m_layerItems.Append(item);
         }
 
         if (!doc().layers.empty())
         {
+            // Selected row = active layer's position in the top-first list.
+            LayerListView().SelectedIndex(static_cast<int32_t>(doc().layers.size() - 1 - doc().activeLayer));
             LayerOpacity().Value(doc().layers[doc().activeLayer].opacity);
         }
 
@@ -762,31 +717,33 @@ namespace winrt::IconMaster::implementation
         Render();
     }
 
-    void MainWindow::OnLayerVisibilityToggled(IInspectable const& sender, RoutedEventArgs const&)
+    // The ListView selection is the active layer (top-first list; layer index is
+    // reversed). Selecting only changes which layer edits target - the composite
+    // is unchanged - so no re-render is needed.
+    void MainWindow::OnLayerSelectionChanged(IInspectable const&, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&)
     {
-        if (m_updatingLayers) { return; }
-        auto btn = sender.try_as<winrt::Microsoft::UI::Xaml::Controls::Primitives::ToggleButton>();
-        if (!btn) { return; }
-        const int32_t k = winrt::unbox_value_or<int32_t>(btn.Tag(), -1);
-        if (k < 0 || static_cast<size_t>(k) >= doc().layers.size()) { return; }
-        const auto state = btn.IsChecked();
-        doc().layers[static_cast<size_t>(k)].visible = (state != nullptr && state.Value());
-        if (auto icon = btn.Content().try_as<FontIcon>())
-        {
-            icon.Opacity(doc().layers[static_cast<size_t>(k)].visible ? 1.0 : 0.35);
-        }
-        Render();
+        if (m_updatingLayers || doc().layers.empty()) { return; }
+        const int32_t sel = LayerListView().SelectedIndex();
+        if (sel < 0 || static_cast<size_t>(sel) >= doc().layers.size()) { return; }
+        doc().activeLayer = doc().layers.size() - 1 - static_cast<size_t>(sel);
+        SyncActiveContext();
+        m_updatingLayers = true;
+        LayerOpacity().Value(doc().layers[doc().activeLayer].opacity);
+        m_updatingLayers = false;
     }
 
-    void MainWindow::OnLayerSelect(IInspectable const& sender, RoutedEventArgs const&)
+    // Fired by the two-way IsChecked binding on a row's visibility toggle.
+    void MainWindow::OnLayerItemPropertyChanged(IInspectable const& sender, winrt::Microsoft::UI::Xaml::Data::PropertyChangedEventArgs const& args)
     {
-        auto btn = sender.try_as<Button>();
-        if (!btn) { return; }
-        const int32_t k = winrt::unbox_value_or<int32_t>(btn.Tag(), -1);
-        if (k < 0 || static_cast<size_t>(k) >= doc().layers.size()) { return; }
-        doc().activeLayer = static_cast<size_t>(k);
-        SyncActiveContext();
-        RebuildLayersUI();
+        if (m_updatingLayers || args.PropertyName() != L"Visible") { return; }
+        auto item = sender.try_as<winrt::IconMaster::LayerItem>();
+        if (!item) { return; }
+        uint32_t vmIndex = 0;
+        if (!m_layerItems.IndexOf(item, vmIndex)) { return; }
+        const size_t layerIndex = doc().layers.size() - 1 - static_cast<size_t>(vmIndex);
+        if (layerIndex >= doc().layers.size()) { return; }
+        doc().layers[layerIndex].visible = item.Visible();
+        Render();
     }
 
     void MainWindow::SetZoom(int32_t zoom)

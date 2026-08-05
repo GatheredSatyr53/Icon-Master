@@ -42,8 +42,8 @@ namespace winrt::IconMaster::implementation
         void OnLayerMoveDown(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnLayerMergeDown(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnLayerOpacityChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& args);
-        void OnLayerVisibilityToggled(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
-        void OnLayerSelect(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnLayerSelectionChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& args);
+        void OnLayerItemPropertyChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Data::PropertyChangedEventArgs const& args);
         void OnCanvasPointerPressed(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void OnCanvasPointerMoved(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void OnCanvasPointerReleased(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
@@ -275,6 +275,9 @@ namespace winrt::IconMaster::implementation
         size_t m_active{ 0 };
         bool m_updatingTabs{ false };  // suppress tab handlers during programmatic changes
         bool m_updatingLayers{ false }; // suppress layer-panel handlers during rebuilds
+        // Bound to the Layers ListView; mirrors doc().layers, topmost first.
+        winrt::Windows::Foundation::Collections::IObservableVector<winrt::IconMaster::LayerItem> m_layerItems{
+            winrt::single_threaded_observable_vector<winrt::IconMaster::LayerItem>() };
         int32_t m_docCounter{ 0 };     // for default document titles
 
         // Remembered "New icon" dialog choices.

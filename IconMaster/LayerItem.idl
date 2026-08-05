@@ -1,0 +1,11 @@
+namespace IconMaster
+{
+    // View-model for one row of the Layers list. Bound in MainWindow.xaml.
+    [default_interface]
+    runtimeclass LayerItem : Microsoft.UI.Xaml.Data.INotifyPropertyChanged
+    {
+        LayerItem(String name, Boolean visible);
+        String Name;
+        Boolean Visible;
+    }
+}

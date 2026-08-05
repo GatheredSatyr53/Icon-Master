@@ -24,6 +24,7 @@
     <ClInclude Include="LineTool.h" />
     <ClInclude Include="RectangleTool.h" />
     <ClInclude Include="EllipseTool.h" />
+    <ClInclude Include="LayerItem.h" />
     <ClInclude Include="StringFormatConverter.h" />
     <ClInclude Include="WrapLayout.h" />
     <ClInclude Include="typehelpers.h" />
@@ -52,6 +53,7 @@
     <ClCompile Include="RectangleTool.cpp" />
     <ClCompile Include="EllipseTool.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClCompile Include="LayerItem.cpp" />
     <ClCompile Include="StringFormatConverter.cpp" />
     <ClCompile Include="WrapLayout.cpp" />
     <ClCompile Include="WrapLayoutState.cpp" />
@@ -60,6 +62,7 @@
     <Midl Include="Editor.idl" />
     <Midl Include="MainWindow.idl" />
     <Midl Include="SizeInput.idl" />
+    <Midl Include="LayerItem.idl" />
     <Midl Include="StringFormatConverter.idl" />
     <Midl Include="WrapLayout.idl" />
     <Midl Include="WrapLayoutState.idl" />
