@@ -4,8 +4,6 @@ name: package
 # and can be triggered manually. Regular CI (build.yml) still only compiles.
 on:
   push:
-    branches:
-      - "claude/pixel-icon-editor-winui3-w9pt4p" # TEMP: validate packaging on this branch
     tags:
       - "v*"
   workflow_dispatch:
