@@ -1,0 +1,146 @@
+name: package
+
+# Builds a signed MSIX and publishes it. Runs on a version tag (e.g. v1.0.0)
+# and can be triggered manually. Regular CI (build.yml) still only compiles.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Create a GitHub Release with the package"
+        type: boolean
+        default: false
+
+jobs:
+  package:
+    # Same pinned image as build.yml: v143 toolset + Windows SDK 10.0.22621.0.
+    runs-on: windows-2022
+
+    permissions:
+      contents: write # publish the release / upload assets
+
+    env:
+      SOLUTION: IconMaster.sln
+      CONFIGURATION: Release
+      PLATFORM: x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Locate MSBuild
+        id: msbuild
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vsPath) { throw "No Visual Studio installation with MSBuild was found." }
+          "path=$(Join-Path $vsPath 'MSBuild\Current\Bin\MSBuild.exe')" >> $env:GITHUB_OUTPUT
+
+      # Uses the signing certificate from repository secrets when present
+      # (SIGNING_CERTIFICATE = base64 of a .pfx, SIGNING_CERTIFICATE_PASSWORD).
+      # Otherwise it generates a self-signed certificate whose subject matches
+      # the manifest Publisher (CN=GatheredSatyr53) and exports the public .cer
+      # so the package can be trusted for sideloading.
+      - name: Prepare signing certificate
+        id: cert
+        shell: pwsh
+        env:
+          BASE64_PFX: ${{ secrets.SIGNING_CERTIFICATE }}
+          PFX_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'sign.pfx'
+          if ($env:BASE64_PFX) {
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:BASE64_PFX))
+            "password=$env:PFX_PASSWORD" >> $env:GITHUB_OUTPUT
+            Write-Host "Signing with the provided certificate."
+          } else {
+            Write-Host "No SIGNING_CERTIFICATE secret found; generating a self-signed certificate."
+            $password = [Guid]::NewGuid().ToString('N')
+            $cert = New-SelfSignedCertificate -Type Custom -Subject 'CN=GatheredSatyr53' `
+              -KeyUsage DigitalSignature -CertStoreLocation 'Cert:\CurrentUser\My' `
+              -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}')
+            $sec = ConvertTo-SecureString -String $password -Force -AsPlainText
+            Export-PfxCertificate -Cert $cert -FilePath $pfx -Password $sec | Out-Null
+            Export-Certificate -Cert $cert -FilePath (Join-Path $env:RUNNER_TEMP 'IconMaster.cer') | Out-Null
+            "password=$password" >> $env:GITHUB_OUTPUT
+          }
+          "pfx=$pfx" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        shell: pwsh
+        run: |
+          & "${{ steps.msbuild.outputs.path }}" $env:SOLUTION `
+            /t:Restore `
+            /p:RestorePackagesConfig=true `
+            /p:Configuration=$env:CONFIGURATION `
+            /p:Platform=$env:PLATFORM
+          if ($LASTEXITCODE -ne 0) { throw "Restore failed with exit code $LASTEXITCODE." }
+
+      # Build the package unsigned, then sign the produced .msix with signtool.
+      # (MSBuild's packaging targets fail to import a password-protected .pfx,
+      # APPX0105; signtool handles it reliably.)
+      - name: Build MSIX package
+        shell: pwsh
+        run: |
+          & "${{ steps.msbuild.outputs.path }}" $env:SOLUTION `
+            /m `
+            /p:Configuration=$env:CONFIGURATION `
+            /p:Platform=$env:PLATFORM `
+            /p:GenerateAppxPackageOnBuild=true `
+            /p:AppxBundle=Never `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /p:AppxPackageSigningEnabled=false `
+            /verbosity:minimal
+          if ($LASTEXITCODE -ne 0) { throw "Package build failed with exit code $LASTEXITCODE." }
+
+      - name: Sign and collect package
+        shell: pwsh
+        run: |
+          $pkg = Get-ChildItem -Path . -Recurse -File -Include *.msix, *.msixbundle |
+                 Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $pkg) { throw "No .msix package was produced." }
+
+          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' -ErrorAction SilentlyContinue |
+                      Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signtool) { throw "signtool.exe not found in the Windows SDK." }
+
+          & $signtool.FullName sign /fd SHA256 `
+            /f "${{ steps.cert.outputs.pfx }}" `
+            /p "${{ steps.cert.outputs.password }}" `
+            $pkg.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Signing failed with exit code $LASTEXITCODE." }
+
+          $out = Join-Path $env:GITHUB_WORKSPACE 'artifact'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          Copy-Item $pkg.FullName $out
+          $cer = Join-Path $env:RUNNER_TEMP 'IconMaster.cer'
+          if (Test-Path $cer) { Copy-Item $cer $out }
+          Write-Host "Signed and packaged:"
+          Get-ChildItem $out | ForEach-Object { Write-Host "  $($_.Name)" }
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IconMaster-msix
+          path: artifact/*
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/*') {
+            $tag = $env:GITHUB_REF -replace 'refs/tags/', ''
+          } else {
+            $tag = "build-$env:GITHUB_RUN_NUMBER"
+          }
+          $files = Get-ChildItem artifact -File | ForEach-Object { $_.FullName }
+          gh release create $tag $files `
+            --title $tag `
+            --notes "Automated MSIX package build ($env:CONFIGURATION $env:PLATFORM). Install the included .cer into Trusted People before sideloading if the package is self-signed." `
+            --target $env:GITHUB_SHA
