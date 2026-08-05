@@ -209,7 +209,7 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\opacity.svg">
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
     </Image>
     <None Include="packages.config" />
