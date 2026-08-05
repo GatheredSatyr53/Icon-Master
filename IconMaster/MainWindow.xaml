@@ -34,9 +34,10 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
 
-        <MenuBar Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
+        <MenuBar Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4">
             <MenuBarItem Title="File">
                 <MenuFlyoutItem Text="New..." Click="OnNew">
                     <MenuFlyoutItem.KeyboardAccelerators>
@@ -512,6 +513,43 @@
                          ColorSpectrumShape="Box"
                          ColorChanged="OnColorChanged"
                          />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="3" Grid.RowSpan="2" Style="{StaticResource WorkspacePanelStyle}">
+            <StackPanel Spacing="8" Width="184">
+                <TextBlock Text="Layers" Style="{StaticResource CaptionTextBlockStyle}" />
+
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <Button Click="OnLayerAdd" Padding="6" ToolTipService.ToolTip="Add layer">
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE710;" FontSize="14" />
+                    </Button>
+                    <Button Click="OnLayerDelete" Padding="6" ToolTipService.ToolTip="Delete layer">
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74D;" FontSize="14" />
+                    </Button>
+                    <Button Click="OnLayerMoveUp" Padding="6" ToolTipService.ToolTip="Move layer up">
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE70E;" FontSize="14" />
+                    </Button>
+                    <Button Click="OnLayerMoveDown" Padding="6" ToolTipService.ToolTip="Move layer down">
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE70D;" FontSize="14" />
+                    </Button>
+                    <Button Click="OnLayerMergeDown" Padding="6" ToolTipService.ToolTip="Merge down">
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74B;" FontSize="14" />
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Opacity" VerticalAlignment="Center" />
+                    <Slider x:Name="LayerOpacity" Width="104" HorizontalAlignment="Right"
+                            Minimum="0" Maximum="100" StepFrequency="1" Value="100"
+                            ValueChanged="OnLayerOpacityChanged"
+                            ToolTipService.ToolTip="Active layer opacity" />
+                </StackPanel>
+
+                <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="LayerList" Spacing="2" />
+                </ScrollViewer>
             </StackPanel>
         </Border>
 

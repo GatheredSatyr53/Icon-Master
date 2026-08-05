@@ -34,6 +34,16 @@ namespace winrt::IconMaster::implementation
         void OnZoomOut(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnToggleGrid(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnToggleGuides(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+
+        // Layers.
+        void OnLayerAdd(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnLayerDelete(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnLayerMoveUp(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnLayerMoveDown(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnLayerMergeDown(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnLayerOpacityChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& args);
+        void OnLayerVisibilityToggled(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnLayerSelect(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnCanvasPointerPressed(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void OnCanvasPointerMoved(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         void OnCanvasPointerReleased(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
@@ -94,8 +104,31 @@ namespace winrt::IconMaster::implementation
         static winrt::hstring ColorToHex(winrt::Windows::UI::Color const& c); // "#AARRGGBB"
         static winrt::Windows::UI::Color HexToColor(std::wstring_view hex);   // parse "#AARRGGBB"
 
-        // Undo/redo via full-canvas snapshots.
-        struct Snapshot { int32_t w = 1; int32_t h = 1; std::vector<winrt::Windows::UI::Color> pixels; };
+        // A single layer: its own pixel grid plus display properties. Drawing tools
+        // act on the active layer; rendering/export composite the visible layers.
+        struct Layer
+        {
+            winrt::IconMaster::DrawingContext context{ nullptr };
+            winrt::hstring name;
+            bool visible{ true };
+            int32_t opacity{ 100 }; // percent, 0..100
+        };
+
+        // Undo/redo via full-document snapshots (every layer's pixels + properties).
+        struct LayerSnapshot
+        {
+            winrt::hstring name;
+            bool visible{ true };
+            int32_t opacity{ 100 };
+            std::vector<winrt::Windows::UI::Color> pixels;
+        };
+        struct Snapshot
+        {
+            int32_t w = 1;
+            int32_t h = 1;
+            size_t active = 0;
+            std::vector<LayerSnapshot> layers;
+        };
 
         // Per-document state (one per open tab). The current tool, colour, clipboard,
         // and the in-progress drag are shared/transient and live in MainWindow.
@@ -109,7 +142,12 @@ namespace winrt::IconMaster::implementation
 
         struct Document
         {
+            // context always aliases layers[activeLayer].context, so the 100+ call
+            // sites that draw/read through doc().context act on the active layer.
             winrt::IconMaster::DrawingContext context{ nullptr };
+            std::vector<Layer> layers;
+            size_t activeLayer{ 0 };
+            int32_t layerCounter{ 0 }; // for default layer names
             int32_t zoom{ 16 };
             bool hasSelection{ false };
             int32_t selX{ 0 };
@@ -129,6 +167,13 @@ namespace winrt::IconMaster::implementation
         void RestoreSnapshot(Snapshot const& snap);
         void PushUndo();
         void ClearHistory();
+
+        // Layer helpers.
+        void SyncActiveContext();                                        // point doc().context at the active layer + seed its colour
+        winrt::Windows::UI::Color CompositePixel(int32_t x, int32_t y) const; // flatten visible layers at a pixel
+        void FlattenActive();                                            // fill m_flat with the composited canvas (for rendering)
+        void RebuildLayersUI();                                          // rebuild the layer list + opacity slider
+        winrt::IconMaster::DrawingContext NewLayerContext();             // an empty context matching the canvas size
         enum class ToolKind { Pen, Eraser, Fill, Eyedropper, Line, Rectangle, Ellipse, Select, Wand };
 
         // Rendering.
@@ -229,6 +274,7 @@ namespace winrt::IconMaster::implementation
         std::vector<Document> m_docs;
         size_t m_active{ 0 };
         bool m_updatingTabs{ false };  // suppress tab handlers during programmatic changes
+        bool m_updatingLayers{ false }; // suppress layer-panel handlers during rebuilds
         int32_t m_docCounter{ 0 };     // for default document titles
 
         // Remembered "New icon" dialog choices.
@@ -247,6 +293,9 @@ namespace winrt::IconMaster::implementation
         winrt::IconMaster::IShapeTool m_currentShape{ nullptr };
         winrt::Microsoft::UI::Xaml::Media::Imaging::WriteableBitmap m_display{ nullptr };
         std::vector<uint8_t> m_baseCache; // last rendered base (no hover), for fast hover refresh
+        std::vector<winrt::Windows::UI::Color> m_flat; // composited canvas (all visible layers), rebuilt each Render
+        int32_t m_flatW{ 0 };
+        int32_t m_flatH{ 0 };
 
         // User-managed custom palette (persisted between sessions).
         std::vector<winrt::Windows::UI::Color> m_palette;

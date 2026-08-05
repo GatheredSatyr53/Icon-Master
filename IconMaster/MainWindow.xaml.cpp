@@ -101,7 +101,13 @@ namespace winrt::IconMaster::implementation
             appWindow.SetIcon(L"Assets/App.ico"); // title-bar / taskbar icon
         }
 
-        doc().context = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
+        {
+            auto ctx = winrt::IconMaster::DrawingContext(k_canvasSize, k_canvasSize);
+            doc().layers.push_back(Layer{ ctx, winrt::hstring{ L"Layer 1" }, true, 100 });
+            doc().activeLayer = 0;
+            doc().layerCounter = 1;
+            doc().context = ctx;
+        }
         m_pen = winrt::IconMaster::Pen();
         m_eraser = winrt::IconMaster::Eraser();
         m_fill = winrt::IconMaster::Fill();
@@ -144,6 +150,7 @@ namespace winrt::IconMaster::implementation
         RebuildPaletteUI();
 
         RebuildDisplay();
+        RebuildLayersUI();
         RebuildRecentMenu(); // populate from the persisted most-recently-used list
         UpdateJumpListAsync(); // refresh the taskbar jump list from the same list
     }
@@ -549,6 +556,241 @@ namespace winrt::IconMaster::implementation
             m_showGuides = item.IsChecked();
         }
         Render();
+    }
+
+    // ---- Layers -------------------------------------------------------------
+
+    winrt::IconMaster::DrawingContext MainWindow::NewLayerContext()
+    {
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        return winrt::IconMaster::DrawingContext(w, h);
+    }
+
+    void MainWindow::SyncActiveContext()
+    {
+        if (doc().layers.empty()) { return; }
+        doc().activeLayer = std::min(doc().activeLayer, doc().layers.size() - 1);
+        doc().context = doc().layers[doc().activeLayer].context;
+        // Tools draw with the context's colour; keep it in step with the picker.
+        if (doc().context != nullptr)
+        {
+            doc().context.Color(ColorPickerControl().Color());
+        }
+    }
+
+    winrt::Windows::UI::Color MainWindow::CompositePixel(int32_t x, int32_t y) const
+    {
+        winrt::Windows::UI::Color acc = kTransparent;
+        for (auto const& layer : doc().layers)
+        {
+            if (!layer.visible || layer.context == nullptr) { continue; }
+            acc = OverBlend(layer.context.GetPixel(x, y), layer.opacity / 100.0, acc);
+        }
+        return acc;
+    }
+
+    void MainWindow::FlattenActive()
+    {
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        m_flatW = w;
+        m_flatH = h;
+        m_flat.assign(static_cast<size_t>(w) * h, kTransparent);
+        for (auto const& layer : doc().layers)
+        {
+            if (!layer.visible || layer.context == nullptr) { continue; }
+            const double cov = layer.opacity / 100.0;
+            for (int32_t y = 0; y < h; ++y)
+            {
+                for (int32_t x = 0; x < w; ++x)
+                {
+                    const auto c = layer.context.GetPixel(x, y);
+                    if (c.A == 0) { continue; }
+                    const size_t idx = static_cast<size_t>(y) * w + x;
+                    m_flat[idx] = OverBlend(c, cov, m_flat[idx]);
+                }
+            }
+        }
+    }
+
+    void MainWindow::RebuildLayersUI()
+    {
+        m_updatingLayers = true;
+
+        auto list = LayerList();
+        list.Children().Clear();
+
+        // Top of the stack (last index) first, so the panel reads like other editors.
+        for (size_t k = doc().layers.size(); k-- > 0; )
+        {
+            auto const& layer = doc().layers[k];
+            const bool active = (k == doc().activeLayer);
+
+            Grid row;
+            row.ColumnSpacing(4);
+            {
+                winrt::Microsoft::UI::Xaml::Controls::ColumnDefinition c0, c1;
+                c0.Width(winrt::Microsoft::UI::Xaml::GridLengthHelper::FromValueAndType(0, winrt::Microsoft::UI::Xaml::GridUnitType::Auto));
+                c1.Width(winrt::Microsoft::UI::Xaml::GridLengthHelper::FromValueAndType(1, winrt::Microsoft::UI::Xaml::GridUnitType::Star));
+                row.ColumnDefinitions().Append(c0);
+                row.ColumnDefinitions().Append(c1);
+            }
+
+            winrt::Microsoft::UI::Xaml::Controls::Primitives::ToggleButton eye;
+            eye.Tag(winrt::box_value(static_cast<int32_t>(k)));
+            eye.IsChecked(layer.visible);
+            eye.Padding(winrt::Microsoft::UI::Xaml::ThicknessHelper::FromLengths(6, 2, 6, 2));
+            eye.MinWidth(0);
+            {
+                FontIcon icon;
+                icon.FontFamily(winrt::Microsoft::UI::Xaml::Media::FontFamily{ L"Segoe MDL2 Assets" });
+                icon.Glyph(L""); // eye
+                icon.FontSize(14);
+                icon.Opacity(layer.visible ? 1.0 : 0.35);
+                eye.Content(icon);
+            }
+            eye.Click({ this, &MainWindow::OnLayerVisibilityToggled });
+            ToolTipService::SetToolTip(eye, winrt::box_value(winrt::hstring{ L"Show / hide layer" }));
+            Grid::SetColumn(eye, 0);
+
+            Button select;
+            select.Tag(winrt::box_value(static_cast<int32_t>(k)));
+            select.Content(winrt::box_value(layer.name));
+            select.HorizontalAlignment(winrt::Microsoft::UI::Xaml::HorizontalAlignment::Stretch);
+            select.HorizontalContentAlignment(winrt::Microsoft::UI::Xaml::HorizontalAlignment::Left);
+            select.Padding(winrt::Microsoft::UI::Xaml::ThicknessHelper::FromLengths(8, 4, 8, 4));
+            if (active)
+            {
+                select.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush{
+                    winrt::Windows::UI::Color{ 0x40, 0x00, 0x78, 0xD7 } });
+            }
+            else
+            {
+                select.Background(nullptr);
+            }
+            select.Click({ this, &MainWindow::OnLayerSelect });
+            Grid::SetColumn(select, 1);
+
+            row.Children().Append(eye);
+            row.Children().Append(select);
+            list.Children().Append(row);
+        }
+
+        if (!doc().layers.empty())
+        {
+            LayerOpacity().Value(doc().layers[doc().activeLayer].opacity);
+        }
+
+        m_updatingLayers = false;
+    }
+
+    void MainWindow::OnLayerAdd(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (doc().context == nullptr) { return; }
+        PushUndo();
+        doc().layerCounter += 1;
+        Layer layer;
+        layer.context = NewLayerContext();
+        layer.name = L"Layer " + winrt::to_hstring(doc().layerCounter);
+        // Insert above the active layer (higher in the z-order) and select it.
+        doc().layers.insert(doc().layers.begin() + doc().activeLayer + 1, std::move(layer));
+        doc().activeLayer += 1;
+        SyncActiveContext();
+        RebuildLayersUI();
+        Render();
+    }
+
+    void MainWindow::OnLayerDelete(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (doc().layers.size() <= 1) { return; }
+        PushUndo();
+        doc().layers.erase(doc().layers.begin() + doc().activeLayer);
+        if (doc().activeLayer >= doc().layers.size()) { doc().activeLayer = doc().layers.size() - 1; }
+        SyncActiveContext();
+        RebuildLayersUI();
+        Render();
+    }
+
+    void MainWindow::OnLayerMoveUp(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (doc().activeLayer + 1 >= doc().layers.size()) { return; }
+        PushUndo();
+        std::swap(doc().layers[doc().activeLayer], doc().layers[doc().activeLayer + 1]);
+        doc().activeLayer += 1;
+        SyncActiveContext();
+        RebuildLayersUI();
+        Render();
+    }
+
+    void MainWindow::OnLayerMoveDown(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (doc().activeLayer == 0) { return; }
+        PushUndo();
+        std::swap(doc().layers[doc().activeLayer], doc().layers[doc().activeLayer - 1]);
+        doc().activeLayer -= 1;
+        SyncActiveContext();
+        RebuildLayersUI();
+        Render();
+    }
+
+    void MainWindow::OnLayerMergeDown(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (doc().activeLayer == 0) { return; } // nothing below to merge into
+        PushUndo();
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        auto& upper = doc().layers[doc().activeLayer];
+        auto& lower = doc().layers[doc().activeLayer - 1];
+        const double cov = upper.opacity / 100.0;
+        for (int32_t y = 0; y < h; ++y)
+        {
+            for (int32_t x = 0; x < w; ++x)
+            {
+                const auto u = upper.context.GetPixel(x, y);
+                if (u.A == 0) { continue; }
+                lower.context.SetPixel(x, y, OverBlend(u, cov, lower.context.GetPixel(x, y)));
+            }
+        }
+        doc().layers.erase(doc().layers.begin() + doc().activeLayer);
+        doc().activeLayer -= 1;
+        SyncActiveContext();
+        RebuildLayersUI();
+        Render();
+    }
+
+    void MainWindow::OnLayerOpacityChanged(IInspectable const&, winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& args)
+    {
+        if (m_updatingLayers || doc().layers.empty()) { return; }
+        doc().layers[doc().activeLayer].opacity = std::clamp(static_cast<int32_t>(args.NewValue()), 0, 100);
+        Render();
+    }
+
+    void MainWindow::OnLayerVisibilityToggled(IInspectable const& sender, RoutedEventArgs const&)
+    {
+        if (m_updatingLayers) { return; }
+        auto btn = sender.try_as<winrt::Microsoft::UI::Xaml::Controls::Primitives::ToggleButton>();
+        if (!btn) { return; }
+        const int32_t k = winrt::unbox_value_or<int32_t>(btn.Tag(), -1);
+        if (k < 0 || static_cast<size_t>(k) >= doc().layers.size()) { return; }
+        const auto state = btn.IsChecked();
+        doc().layers[static_cast<size_t>(k)].visible = (state != nullptr && state.Value());
+        if (auto icon = btn.Content().try_as<FontIcon>())
+        {
+            icon.Opacity(doc().layers[static_cast<size_t>(k)].visible ? 1.0 : 0.35);
+        }
+        Render();
+    }
+
+    void MainWindow::OnLayerSelect(IInspectable const& sender, RoutedEventArgs const&)
+    {
+        auto btn = sender.try_as<Button>();
+        if (!btn) { return; }
+        const int32_t k = winrt::unbox_value_or<int32_t>(btn.Tag(), -1);
+        if (k < 0 || static_cast<size_t>(k) >= doc().layers.size()) { return; }
+        doc().activeLayer = static_cast<size_t>(k);
+        SyncActiveContext();
+        RebuildLayersUI();
     }
 
     void MainWindow::SetZoom(int32_t zoom)
@@ -1337,6 +1579,9 @@ namespace winrt::IconMaster::implementation
         m_updatingTabs = true;
 
         Document d;
+        d.layers.push_back(Layer{ context, winrt::hstring{ L"Layer 1" }, true, 100 });
+        d.activeLayer = 0;
+        d.layerCounter = 1;
         d.context = context;
         d.zoom = std::clamp(zoom, k_minZoom, k_maxZoom);
         d.title = title;
@@ -1354,6 +1599,7 @@ namespace winrt::IconMaster::implementation
 
         ResetTransient();
         RebuildDisplay();
+        RebuildLayersUI();
     }
 
     int32_t MainWindow::FitZoom(int32_t maxDim)
@@ -1455,21 +1701,24 @@ namespace winrt::IconMaster::implementation
         // Snapshot the old canvas so the resize is undoable (dimensions included).
         PushUndo();
 
-        auto resized = winrt::IconMaster::DrawingContext(newW, newH);
-        resized.Color(doc().context.Color());
-
-        // Copy the overlapping region, anchored at the top-left corner.
+        // Copy the overlapping region of every layer, anchored at the top-left.
         const int32_t copyW = std::min(oldW, newW);
         const int32_t copyH = std::min(oldH, newH);
-        for (int32_t y = 0; y < copyH; ++y)
+        for (auto& layer : doc().layers)
         {
-            for (int32_t x = 0; x < copyW; ++x)
+            auto resized = winrt::IconMaster::DrawingContext(newW, newH);
+            resized.Color(layer.context.Color());
+            for (int32_t y = 0; y < copyH; ++y)
             {
-                resized.SetPixel(x, y, doc().context.GetPixel(x, y));
+                for (int32_t x = 0; x < copyW; ++x)
+                {
+                    resized.SetPixel(x, y, layer.context.GetPixel(x, y));
+                }
             }
+            layer.context = resized;
         }
 
-        doc().context = resized;
+        SyncActiveContext();
         doc().hasSelection = false;
         ResetTransient();
         doc().zoom = FitZoom(std::max(newW, newH));
@@ -1485,14 +1734,17 @@ namespace winrt::IconMaster::implementation
         PushUndo();
         const int32_t w = doc().context.PixelWidth();
         const int32_t h = doc().context.PixelHeight();
-        for (int32_t y = 0; y < h; ++y)
+        for (auto& layer : doc().layers)
         {
-            for (int32_t x = 0; x < w / 2; ++x)
+            for (int32_t y = 0; y < h; ++y)
             {
-                const auto a = doc().context.GetPixel(x, y);
-                const auto b = doc().context.GetPixel(w - 1 - x, y);
-                doc().context.SetPixel(x, y, b);
-                doc().context.SetPixel(w - 1 - x, y, a);
+                for (int32_t x = 0; x < w / 2; ++x)
+                {
+                    const auto a = layer.context.GetPixel(x, y);
+                    const auto b = layer.context.GetPixel(w - 1 - x, y);
+                    layer.context.SetPixel(x, y, b);
+                    layer.context.SetPixel(w - 1 - x, y, a);
+                }
             }
         }
         doc().hasSelection = false;
@@ -1509,14 +1761,17 @@ namespace winrt::IconMaster::implementation
         PushUndo();
         const int32_t w = doc().context.PixelWidth();
         const int32_t h = doc().context.PixelHeight();
-        for (int32_t y = 0; y < h / 2; ++y)
+        for (auto& layer : doc().layers)
         {
-            for (int32_t x = 0; x < w; ++x)
+            for (int32_t y = 0; y < h / 2; ++y)
             {
-                const auto a = doc().context.GetPixel(x, y);
-                const auto b = doc().context.GetPixel(x, h - 1 - y);
-                doc().context.SetPixel(x, y, b);
-                doc().context.SetPixel(x, h - 1 - y, a);
+                for (int32_t x = 0; x < w; ++x)
+                {
+                    const auto a = layer.context.GetPixel(x, y);
+                    const auto b = layer.context.GetPixel(x, h - 1 - y);
+                    layer.context.SetPixel(x, y, b);
+                    layer.context.SetPixel(x, h - 1 - y, a);
+                }
             }
         }
         doc().hasSelection = false;
@@ -1534,26 +1789,30 @@ namespace winrt::IconMaster::implementation
         const int32_t w = doc().context.PixelWidth();
         const int32_t h = doc().context.PixelHeight();
 
-        // A quarter turn swaps the dimensions (w x h -> h x w).
-        auto rotated = winrt::IconMaster::DrawingContext(h, w);
-        rotated.Color(doc().context.Color());
-        for (int32_t y = 0; y < h; ++y)
+        // A quarter turn swaps the dimensions (w x h -> h x w), for every layer.
+        for (auto& layer : doc().layers)
         {
-            for (int32_t x = 0; x < w; ++x)
+            auto rotated = winrt::IconMaster::DrawingContext(h, w);
+            rotated.Color(layer.context.Color());
+            for (int32_t y = 0; y < h; ++y)
             {
-                const auto c = doc().context.GetPixel(x, y);
-                if (clockwise)
+                for (int32_t x = 0; x < w; ++x)
                 {
-                    rotated.SetPixel(h - 1 - y, x, c);
-                }
-                else
-                {
-                    rotated.SetPixel(y, w - 1 - x, c);
+                    const auto c = layer.context.GetPixel(x, y);
+                    if (clockwise)
+                    {
+                        rotated.SetPixel(h - 1 - y, x, c);
+                    }
+                    else
+                    {
+                        rotated.SetPixel(y, w - 1 - x, c);
+                    }
                 }
             }
+            layer.context = rotated;
         }
 
-        doc().context = rotated;
+        SyncActiveContext();
         doc().hasSelection = false;
         ResetTransient();
         RebuildDisplay(); // keep the current zoom
@@ -1614,29 +1873,32 @@ namespace winrt::IconMaster::implementation
         nw = std::clamp(nw, 1, 1024);
         nh = std::clamp(nh, 1, 1024);
 
-        auto rotated = winrt::IconMaster::DrawingContext(nw, nh);
-        rotated.Color(doc().context.Color());
-
-        for (int32_t dy = 0; dy < nh; ++dy)
+        for (auto& layer : doc().layers)
         {
-            for (int32_t dx = 0; dx < nw; ++dx)
+            auto rotated = winrt::IconMaster::DrawingContext(nw, nh);
+            rotated.Color(layer.context.Color());
+            for (int32_t dy = 0; dy < nh; ++dy)
             {
-                // Inverse-rotate the destination pixel centre about the pivot and
-                // sample the nearest source pixel.
-                const double rx = (dx + 0.5) - dpx;
-                const double ry = (dy + 0.5) - dpy;
-                const double srcX = px + (ca * rx + sa * ry);
-                const double srcY = py + (-sa * rx + ca * ry);
-                const int32_t sx = static_cast<int32_t>(std::floor(srcX));
-                const int32_t sy = static_cast<int32_t>(std::floor(srcY));
-                if (sx >= 0 && sx < w && sy >= 0 && sy < h)
+                for (int32_t dx = 0; dx < nw; ++dx)
                 {
-                    rotated.SetPixel(dx, dy, doc().context.GetPixel(sx, sy));
+                    // Inverse-rotate the destination pixel centre about the pivot and
+                    // sample the nearest source pixel.
+                    const double rx = (dx + 0.5) - dpx;
+                    const double ry = (dy + 0.5) - dpy;
+                    const double srcX = px + (ca * rx + sa * ry);
+                    const double srcY = py + (-sa * rx + ca * ry);
+                    const int32_t sx = static_cast<int32_t>(std::floor(srcX));
+                    const int32_t sy = static_cast<int32_t>(std::floor(srcY));
+                    if (sx >= 0 && sx < w && sy >= 0 && sy < h)
+                    {
+                        rotated.SetPixel(dx, dy, layer.context.GetPixel(sx, sy));
+                    }
                 }
             }
+            layer.context = rotated;
         }
 
-        doc().context = rotated;
+        SyncActiveContext();
         doc().hasSelection = false;
         ResetTransient();
         RebuildDisplay(); // keep the current zoom
@@ -2039,7 +2301,7 @@ namespace winrt::IconMaster::implementation
             {
                 const int32_t sx = x * w / target; // nearest-neighbour
                 const int32_t sy = y * h / target;
-                const auto c = doc().context.GetPixel(sx, sy);
+                const auto c = CompositePixel(sx, sy);
                 const size_t i = (static_cast<size_t>(y) * target + x) * 4;
                 out[i + 0] = c.B;
                 out[i + 1] = c.G;
@@ -2078,7 +2340,7 @@ namespace winrt::IconMaster::implementation
         {
             for (int32_t x = 0; x < w; ++x)
             {
-                const auto c = doc().context.GetPixel(x, y);
+                const auto c = CompositePixel(x, y);
                 const size_t i = (static_cast<size_t>(y) * w + x) * 4;
                 bytes[i + 0] = c.B;
                 bytes[i + 1] = c.G;
@@ -2181,39 +2443,65 @@ namespace winrt::IconMaster::implementation
         Snapshot s;
         s.w = w;
         s.h = h;
-        s.pixels.resize(static_cast<size_t>(w) * h);
-        for (int32_t y = 0; y < h; ++y)
+        s.active = doc().activeLayer;
+        s.layers.reserve(doc().layers.size());
+        for (auto const& layer : doc().layers)
         {
-            for (int32_t x = 0; x < w; ++x)
+            LayerSnapshot ls;
+            ls.name = layer.name;
+            ls.visible = layer.visible;
+            ls.opacity = layer.opacity;
+            ls.pixels.resize(static_cast<size_t>(w) * h);
+            for (int32_t y = 0; y < h; ++y)
             {
-                s.pixels[static_cast<size_t>(y) * w + x] = doc().context.GetPixel(x, y);
+                for (int32_t x = 0; x < w; ++x)
+                {
+                    ls.pixels[static_cast<size_t>(y) * w + x] = layer.context.GetPixel(x, y);
+                }
             }
+            s.layers.push_back(std::move(ls));
         }
         return s;
     }
 
     void MainWindow::RestoreSnapshot(Snapshot const& snap)
     {
+        const winrt::Windows::UI::Color color =
+            (doc().context != nullptr) ? doc().context.Color() : winrt::Windows::UI::Color{ 0xFF, 0x00, 0x00, 0x00 };
         if (snap.w != doc().context.PixelWidth() || snap.h != doc().context.PixelHeight())
         {
-            auto context = winrt::IconMaster::DrawingContext(snap.w, snap.h);
-            context.Color(doc().context.Color());
-            doc().context = context;
             doc().zoom = FitZoom(std::max(snap.w, snap.h));
         }
-        for (int32_t y = 0; y < snap.h; ++y)
+
+        // Rebuild the entire layer stack from the snapshot.
+        doc().layers.clear();
+        for (auto const& ls : snap.layers)
         {
-            for (int32_t x = 0; x < snap.w; ++x)
+            Layer layer;
+            layer.context = winrt::IconMaster::DrawingContext(snap.w, snap.h);
+            layer.context.Color(color);
+            layer.name = ls.name;
+            layer.visible = ls.visible;
+            layer.opacity = ls.opacity;
+            for (int32_t y = 0; y < snap.h; ++y)
             {
-                doc().context.SetPixel(x, y, snap.pixels[static_cast<size_t>(y) * snap.w + x]);
+                for (int32_t x = 0; x < snap.w; ++x)
+                {
+                    layer.context.SetPixel(x, y, ls.pixels[static_cast<size_t>(y) * snap.w + x]);
+                }
             }
+            doc().layers.push_back(std::move(layer));
         }
+        doc().activeLayer = doc().layers.empty() ? 0 : std::min(snap.active, doc().layers.size() - 1);
+        SyncActiveContext();
+
         // The selection may reference pixels that no longer match; clear it.
         doc().hasSelection = false;
         m_selecting = false;
         m_moving = false;
         m_shapeActive = false;
         m_floatPixels.clear();
+        RebuildLayersUI();
     }
 
     void MainWindow::PushUndo()
@@ -2278,8 +2566,10 @@ namespace winrt::IconMaster::implementation
             return;
         }
         m_active = static_cast<size_t>(idx);
+        SyncActiveContext();
         ResetTransient();
         RebuildDisplay();
+        RebuildLayersUI();
     }
 
     void MainWindow::OnAddTab(winrt::Microsoft::UI::Xaml::Controls::TabView const&, IInspectable const&)
@@ -2361,10 +2651,13 @@ namespace winrt::IconMaster::implementation
         else
         {
             // Map to a logical pixel, clamping the extra +1 border row/column that
-            // exists only to close the grid (it falls outside the canvas).
-            const int32_t lx = std::min(dx / doc().zoom, doc().context.PixelWidth() - 1);
-            const int32_t ly = std::min(dy / doc().zoom, doc().context.PixelHeight() - 1);
-            const winrt::Windows::UI::Color c = doc().context.GetPixel(lx, ly);
+            // exists only to close the grid (it falls outside the canvas). The pixel
+            // comes from m_flat, the pre-composited stack of visible layers.
+            const int32_t lx = std::min(dx / doc().zoom, m_flatW - 1);
+            const int32_t ly = std::min(dy / doc().zoom, m_flatH - 1);
+            const winrt::Windows::UI::Color c = (m_flatW > 0 && m_flatH > 0)
+                ? m_flat[static_cast<size_t>(ly) * m_flatW + lx]
+                : kTransparent;
             // Composite the (possibly semi-transparent) pixel over the checkerboard
             // so partial alpha - e.g. soft brush edges - is actually visible.
             const bool light = ((((dx / k_checkerCell) + (dy / k_checkerCell)) & 1) == 0);
@@ -2585,9 +2878,10 @@ namespace winrt::IconMaster::implementation
         const int32_t dh = m_display.PixelHeight();
         uint8_t* data = DisplayData();
 
-        // The base render is expensive (a cross-ABI GetPixel per display pixel), so
-        // cache everything except the cursor hover preview. RenderHover() can then
-        // refresh just the moving outline by blitting the cache instead of redrawing.
+        // Composite the visible layers once into m_flat; RenderBase then reads that
+        // instead of doing a cross-ABI GetPixel per display pixel. The result is
+        // cached (minus the hover preview) so RenderHover() can blit it.
+        FlattenActive();
         RenderBase(data, dw, dh);
         OverlayGuides(data, dw, dh);
         if (m_shapeActive)   { OverlayShapePreview(data, dw, dh); }
