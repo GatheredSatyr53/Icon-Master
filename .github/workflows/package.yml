@@ -81,6 +81,9 @@ jobs:
             /p:Platform=$env:PLATFORM
           if ($LASTEXITCODE -ne 0) { throw "Restore failed with exit code $LASTEXITCODE." }
 
+      # Build the package unsigned, then sign the produced .msix with signtool.
+      # (MSBuild's packaging targets fail to import a password-protected .pfx,
+      # APPX0105; signtool handles it reliably.)
       - name: Build MSIX package
         shell: pwsh
         run: |
@@ -91,24 +94,33 @@ jobs:
             /p:GenerateAppxPackageOnBuild=true `
             /p:AppxBundle=Never `
             /p:UapAppxPackageBuildMode=SideloadOnly `
-            /p:AppxPackageSigningEnabled=true `
-            /p:PackageCertificateKeyFile="${{ steps.cert.outputs.pfx }}" `
-            /p:PackageCertificatePassword="${{ steps.cert.outputs.password }}" `
+            /p:AppxPackageSigningEnabled=false `
             /verbosity:minimal
           if ($LASTEXITCODE -ne 0) { throw "Package build failed with exit code $LASTEXITCODE." }
 
-      - name: Collect package
+      - name: Sign and collect package
         shell: pwsh
         run: |
-          $out = Join-Path $env:GITHUB_WORKSPACE 'artifact'
-          New-Item -ItemType Directory -Force -Path $out | Out-Null
           $pkg = Get-ChildItem -Path . -Recurse -File -Include *.msix, *.msixbundle |
                  Sort-Object LastWriteTime -Descending | Select-Object -First 1
           if (-not $pkg) { throw "No .msix package was produced." }
+
+          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' -ErrorAction SilentlyContinue |
+                      Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signtool) { throw "signtool.exe not found in the Windows SDK." }
+
+          & $signtool.FullName sign /fd SHA256 `
+            /f "${{ steps.cert.outputs.pfx }}" `
+            /p "${{ steps.cert.outputs.password }}" `
+            $pkg.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Signing failed with exit code $LASTEXITCODE." }
+
+          $out = Join-Path $env:GITHUB_WORKSPACE 'artifact'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
           Copy-Item $pkg.FullName $out
           $cer = Join-Path $env:RUNNER_TEMP 'IconMaster.cer'
           if (Test-Path $cer) { Copy-Item $cer $out }
-          Write-Host "Packaged:"
+          Write-Host "Signed and packaged:"
           Get-ChildItem $out | ForEach-Object { Write-Host "  $($_.Name)" }
 
       - name: Upload build artifact
