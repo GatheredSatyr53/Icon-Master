@@ -2243,8 +2243,8 @@ namespace winrt::IconMaster::implementation
     {
         auto lifetime = get_strong();
 
-        auto img = std::make_shared<IconMaster::LoadedImage>();
-        co_await IconMaster::ImageIO::LoadAsync(file, img);
+        auto img = std::make_shared<::IconMaster::LoadedImage>();
+        co_await ::IconMaster::ImageIO::LoadAsync(file, img);
 
         const uint32_t w = img->width;
         const uint32_t h = img->height;
@@ -2429,7 +2429,7 @@ namespace winrt::IconMaster::implementation
                 bytes[i + 3] = c.A;
             }
         }
-        co_await IconMaster::ImageIO::SaveImageAsync(file, encoderId, std::move(bytes),
+        co_await ::IconMaster::ImageIO::SaveImageAsync(file, encoderId, std::move(bytes),
             static_cast<uint32_t>(w), static_cast<uint32_t>(h));
     }
 
@@ -2451,7 +2451,7 @@ namespace winrt::IconMaster::implementation
                 bytes[i + 3] = c.A;
             }
         }
-        co_await IconMaster::ImageIO::SaveIcoAsync(file, std::move(bytes),
+        co_await ::IconMaster::ImageIO::SaveIcoAsync(file, std::move(bytes),
             static_cast<uint32_t>(w), static_cast<uint32_t>(h));
     }
 
