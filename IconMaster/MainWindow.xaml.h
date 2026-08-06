@@ -82,7 +82,8 @@ namespace winrt::IconMaster::implementation
         void OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const& sender, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args);
 
     private:
-        void NewDocument(int32_t w, int32_t h);
+        void NewDocument(int32_t w, int32_t h, int32_t colorMode);
+        winrt::IconMaster::DrawingContext MakeContext(int32_t w, int32_t h); // context sized w*h, carrying the active doc's colour mode
         void AddDocument(winrt::IconMaster::DrawingContext const& context, winrt::hstring const& title, int32_t zoom);
         static int32_t FitZoom(int32_t maxDim);        // zoom that fits a maxDim-wide canvas on screen
         void ResizeCanvas(int32_t newW, int32_t newH); // resize the active canvas, top-left anchored
@@ -153,6 +154,7 @@ namespace winrt::IconMaster::implementation
             std::vector<Layer> layers;
             size_t activeLayer{ 0 };
             int32_t layerCounter{ 0 }; // for default layer names
+            int32_t colorMode{ 32 };   // colour depth applied to every layer (32/24/8/4/1)
             int32_t zoom{ 16 };
             bool hasSelection{ false };
             int32_t selX{ 0 };
@@ -289,6 +291,7 @@ namespace winrt::IconMaster::implementation
         int32_t m_docCounter{ 0 };     // for default document titles
 
         // Remembered "New icon" dialog choices.
+        int32_t m_newMode{ 32 };       // remembered "New icon" colour depth
         int32_t m_newW{ k_canvasSize };
         int32_t m_newH{ k_canvasSize };
         bool m_askOnNew{ true };        // false => "Don't ask again": reuse the remembered size

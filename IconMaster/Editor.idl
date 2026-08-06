@@ -8,6 +8,10 @@ namespace IconMaster
         Int32 PixelWidth{ get; };
         Int32 PixelHeight{ get; };
 
+        // Colour depth the surface quantizes to on SetPixel: 32 (RGBA, default),
+        // 24 (RGB + 1-bit alpha), 8 (RGB332), 4 (16-colour palette), 1 (mono).
+        Int32 ColorMode;
+
         Windows.UI.Color Color;
 
         Windows.UI.Color GetPixel(Int32 x, Int32 y);

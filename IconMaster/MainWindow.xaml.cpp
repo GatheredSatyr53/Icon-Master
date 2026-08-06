@@ -572,11 +572,18 @@ namespace winrt::IconMaster::implementation
 
     // ---- Layers -------------------------------------------------------------
 
+    winrt::IconMaster::DrawingContext MainWindow::MakeContext(int32_t w, int32_t h)
+    {
+        auto c = winrt::IconMaster::DrawingContext(w, h);
+        c.ColorMode(doc().colorMode);
+        return c;
+    }
+
     winrt::IconMaster::DrawingContext MainWindow::NewLayerContext()
     {
         const int32_t w = doc().context.PixelWidth();
         const int32_t h = doc().context.PixelHeight();
-        return winrt::IconMaster::DrawingContext(w, h);
+        return MakeContext(w, h);
     }
 
     void MainWindow::SyncActiveContext()
@@ -1658,6 +1665,7 @@ namespace winrt::IconMaster::implementation
         d.activeLayer = 0;
         d.layerCounter = 1;
         d.context = context;
+        d.colorMode = context.ColorMode();
         d.zoom = std::clamp(zoom, k_minZoom, k_maxZoom);
         d.title = title;
         m_docs.push_back(std::move(d));
@@ -1686,11 +1694,12 @@ namespace winrt::IconMaster::implementation
         return std::clamp(512 / maxDim, k_minZoom, k_maxZoom);
     }
 
-    void MainWindow::NewDocument(int32_t w, int32_t h)
+    void MainWindow::NewDocument(int32_t w, int32_t h, int32_t colorMode)
     {
         w = std::clamp(w, 1, 1024);
         h = std::clamp(h, 1, 1024);
         auto context = winrt::IconMaster::DrawingContext(w, h);
+        context.ColorMode(colorMode);
         context.Color(ColorPickerControl().Color());
         m_docCounter += 1;
         AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), FitZoom(std::max(w, h)));
@@ -1736,6 +1745,16 @@ namespace winrt::IconMaster::implementation
             if (preset != nullptr) { preset.IsChecked(true); }
             else                   { SizeOther().IsChecked(true); }
 
+            // Seed the remembered colour depth.
+            switch (m_newMode)
+            {
+            case 1:  Depth1().IsChecked(true);  break;
+            case 4:  Depth4().IsChecked(true);  break;
+            case 8:  Depth8().IsChecked(true);  break;
+            case 24: Depth24().IsChecked(true); break;
+            default: Depth32().IsChecked(true); break;
+            }
+
             if (NewIconDialog().XamlRoot() == nullptr)
             {
                 NewIconDialog().XamlRoot(this->Content().XamlRoot());
@@ -1750,6 +1769,17 @@ namespace winrt::IconMaster::implementation
             m_newW = w;
             m_newH = h;
 
+            auto checked = [](winrt::Microsoft::UI::Xaml::Controls::RadioButton const& rb)
+            {
+                auto v = rb.IsChecked();
+                return v && v.Value();
+            };
+            if (checked(Depth1()))       { m_newMode = 1; }
+            else if (checked(Depth4()))  { m_newMode = 4; }
+            else if (checked(Depth8()))  { m_newMode = 8; }
+            else if (checked(Depth24())) { m_newMode = 24; }
+            else                         { m_newMode = 32; }
+
             auto ask = NewDontAsk().IsChecked();
             if (ask && ask.Value())
             {
@@ -1757,7 +1787,7 @@ namespace winrt::IconMaster::implementation
             }
         }
 
-        NewDocument(w, h);
+        NewDocument(w, h, m_newMode);
     }
 
     void MainWindow::ResizeCanvas(int32_t newW, int32_t newH)
@@ -1781,7 +1811,7 @@ namespace winrt::IconMaster::implementation
         const int32_t copyH = std::min(oldH, newH);
         for (auto& layer : doc().layers)
         {
-            auto resized = winrt::IconMaster::DrawingContext(newW, newH);
+            auto resized = MakeContext(newW, newH);
             resized.Color(layer.context.Color());
             for (int32_t y = 0; y < copyH; ++y)
             {
@@ -1867,7 +1897,7 @@ namespace winrt::IconMaster::implementation
         // A quarter turn swaps the dimensions (w x h -> h x w), for every layer.
         for (auto& layer : doc().layers)
         {
-            auto rotated = winrt::IconMaster::DrawingContext(h, w);
+            auto rotated = MakeContext(h, w);
             rotated.Color(layer.context.Color());
             for (int32_t y = 0; y < h; ++y)
             {
@@ -1955,7 +1985,7 @@ namespace winrt::IconMaster::implementation
 
         for (auto& layer : doc().layers)
         {
-            auto rotated = winrt::IconMaster::DrawingContext(nw, nh);
+            auto rotated = MakeContext(nw, nh);
             rotated.Color(layer.context.Color());
             for (int32_t dy = 0; dy < nh; ++dy)
             {
@@ -2558,7 +2588,7 @@ namespace winrt::IconMaster::implementation
         for (auto const& ls : snap.layers)
         {
             Layer layer;
-            layer.context = winrt::IconMaster::DrawingContext(snap.w, snap.h);
+            layer.context = MakeContext(snap.w, snap.h);
             layer.context.Color(color);
             layer.name = ls.name;
             layer.visible = ls.visible;
@@ -2655,7 +2685,7 @@ namespace winrt::IconMaster::implementation
     void MainWindow::OnAddTab(winrt::Microsoft::UI::Xaml::Controls::TabView const&, IInspectable const&)
     {
         // The tab "+" button is a quick add: reuse the last chosen size without a prompt.
-        NewDocument(m_newW, m_newH);
+        NewDocument(m_newW, m_newH, m_newMode);
     }
 
     void MainWindow::OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const&, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args)

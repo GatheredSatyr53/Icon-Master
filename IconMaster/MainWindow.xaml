@@ -629,13 +629,12 @@
                         <local:SizeInput x:Name="NewDims" />
                     </StackPanel>
                     <StackPanel Spacing="6">
-                        <!-- Shown for parity; the engine is always 32-bit BGRA, so this is fixed. -->
                         <TextBlock Text="Colours" />
-                        <RadioButton Content="Black &amp; white (1-bit)" GroupName="newdepth" IsEnabled="False" />
-                        <RadioButton Content="16 colours (4-bit)" GroupName="newdepth" IsEnabled="False" />
-                        <RadioButton Content="256 colours (8-bit)" GroupName="newdepth" IsEnabled="False" />
-                        <RadioButton Content="True Color (24-bit)" GroupName="newdepth" IsEnabled="False" />
-                        <RadioButton Content="True Color + Alpha (32-bit)" GroupName="newdepth" IsChecked="True" IsEnabled="False" />
+                        <RadioButton x:Name="Depth1" Content="Black &amp; white (1-bit)" GroupName="newdepth" Tag="1" />
+                        <RadioButton x:Name="Depth4" Content="16 colours (4-bit)" GroupName="newdepth" Tag="4" />
+                        <RadioButton x:Name="Depth8" Content="256 colours (8-bit)" GroupName="newdepth" Tag="8" />
+                        <RadioButton x:Name="Depth24" Content="True Color (24-bit)" GroupName="newdepth" Tag="24" />
+                        <RadioButton x:Name="Depth32" Content="True Color + Alpha (32-bit)" GroupName="newdepth" Tag="32" IsChecked="True" />
                     </StackPanel>
                 </StackPanel>
                 <CheckBox x:Name="NewDontAsk" Content="Don't ask again" />
