@@ -18,6 +18,11 @@
 #include <microsoft.ui.xaml.window.h>
 #include <shobjidl_core.h>
 #include <robuffer.h>
+#include <wincodec.h>
+#include <shcore.h>
+#pragma comment(lib, "windowscodecs.lib")
+#pragma comment(lib, "shcore.lib")
+#pragma comment(lib, "ole32.lib")
 #include <algorithm>
 #include <cmath>
 #include <span>
@@ -86,6 +91,57 @@ namespace
             if (auto tb = FindEditTextBox(MUX::Media::VisualTreeHelper::GetChild(root, i))) { return tb; }
         }
         return nullptr;
+    }
+
+    // Read a bitmap's declared colour depth via WIC and map it to a DrawingContext
+    // colour mode (1/4/8/24/32). Returns 32 if the format can't be determined.
+    int32_t DetectColorModeFromStream(winrt::Windows::Storage::Streams::IRandomAccessStream const& ras)
+    {
+        winrt::com_ptr<IStream> stm;
+        if (FAILED(CreateStreamOverRandomAccessStream(winrt::get_unknown(ras), __uuidof(IStream), stm.put_void())))
+        {
+            return 32;
+        }
+        winrt::com_ptr<IWICImagingFactory> factory;
+        if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
+                                    __uuidof(IWICImagingFactory), factory.put_void())))
+        {
+            return 32;
+        }
+        winrt::com_ptr<IWICBitmapDecoder> dec;
+        if (FAILED(factory->CreateDecoderFromStream(stm.get(), nullptr, WICDecodeMetadataCacheOnDemand, dec.put())))
+        {
+            return 32;
+        }
+        winrt::com_ptr<IWICBitmapFrameDecode> frame;
+        if (FAILED(dec->GetFrame(0, frame.put())))
+        {
+            return 32;
+        }
+        WICPixelFormatGUID fmt{};
+        if (FAILED(frame->GetPixelFormat(&fmt)))
+        {
+            return 32;
+        }
+        winrt::com_ptr<IWICComponentInfo> ci;
+        if (FAILED(factory->CreateComponentInfo(fmt, ci.put())))
+        {
+            return 32;
+        }
+        auto pfi = ci.try_as<IWICPixelFormatInfo2>();
+        if (!pfi)
+        {
+            return 32;
+        }
+        UINT bpp = 0;
+        pfi->GetBitsPerPixel(&bpp);
+        BOOL transparency = FALSE;
+        pfi->SupportsTransparency(&transparency);
+
+        if (bpp <= 1) { return 1; }
+        if (bpp <= 4) { return 4; }
+        if (bpp == 8) { return 8; }
+        return transparency ? 32 : 24; // truecolour, with or without an alpha channel
     }
 
     // Soft erase: reduce the destination alpha by coverage.
@@ -2261,6 +2317,16 @@ namespace winrt::IconMaster::implementation
             winrt::Windows::Graphics::Imaging::ColorManagementMode::DoNotColorManage);
         auto bytes = provider.DetachPixelData();
 
+        // Detect the file's declared colour depth (a fresh stream keeps the WIC read
+        // independent of the WinRT decoder above).
+        int32_t mode = 32;
+        {
+            auto detectStream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::Read);
+            mode = DetectColorModeFromStream(detectStream);
+        }
+
+        // Fill the pixels at 32-bit so the original colours are preserved exactly,
+        // then apply the detected mode so the badge and future edits reflect it.
         auto context = winrt::IconMaster::DrawingContext(static_cast<int32_t>(w), static_cast<int32_t>(h));
         context.Color(ColorPickerControl().Color());
         for (uint32_t y = 0; y < h; ++y)
@@ -2272,6 +2338,7 @@ namespace winrt::IconMaster::implementation
                 context.SetPixel(static_cast<int32_t>(x), static_cast<int32_t>(y), c);
             }
         }
+        context.ColorMode(mode);
 
         const auto fit = static_cast<int32_t>(512u / std::max(w, h));
         AddDocument(context, file.Name(), fit);
