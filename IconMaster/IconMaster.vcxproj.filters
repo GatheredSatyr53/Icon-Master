@@ -24,6 +24,7 @@
     <ClInclude Include="LineTool.h" />
     <ClInclude Include="RectangleTool.h" />
     <ClInclude Include="EllipseTool.h" />
+    <ClInclude Include="ImageIO.h" />
     <ClInclude Include="LayerItem.h" />
     <ClInclude Include="StringFormatConverter.h" />
     <ClInclude Include="WrapLayout.h" />
@@ -53,6 +54,7 @@
     <ClCompile Include="RectangleTool.cpp" />
     <ClCompile Include="EllipseTool.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClCompile Include="ImageIO.cpp" />
     <ClCompile Include="LayerItem.cpp" />
     <ClCompile Include="StringFormatConverter.cpp" />
     <ClCompile Include="WrapLayout.cpp" />

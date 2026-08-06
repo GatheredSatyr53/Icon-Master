@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "MainWindow.xaml.h"
 #include "LayerItem.h"
+#include "ImageIO.h"
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
 #endif
@@ -18,11 +19,6 @@
 #include <microsoft.ui.xaml.window.h>
 #include <shobjidl_core.h>
 #include <robuffer.h>
-#include <wincodec.h>
-#include <shcore.h>
-#pragma comment(lib, "windowscodecs.lib")
-#pragma comment(lib, "shcore.lib")
-#pragma comment(lib, "ole32.lib")
 #include <algorithm>
 #include <cmath>
 #include <span>
@@ -92,58 +88,6 @@ namespace
         }
         return nullptr;
     }
-
-    // Read a bitmap's declared colour depth via WIC and map it to a DrawingContext
-    // colour mode (1/4/8/24/32). Returns 32 if the format can't be determined.
-    int32_t DetectColorModeFromStream(winrt::Windows::Storage::Streams::IRandomAccessStream const& ras)
-    {
-        winrt::com_ptr<IStream> stm;
-        if (FAILED(CreateStreamOverRandomAccessStream(winrt::get_unknown(ras), __uuidof(IStream), stm.put_void())))
-        {
-            return 32;
-        }
-        winrt::com_ptr<IWICImagingFactory> factory;
-        if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
-                                    __uuidof(IWICImagingFactory), factory.put_void())))
-        {
-            return 32;
-        }
-        winrt::com_ptr<IWICBitmapDecoder> dec;
-        if (FAILED(factory->CreateDecoderFromStream(stm.get(), nullptr, WICDecodeMetadataCacheOnDemand, dec.put())))
-        {
-            return 32;
-        }
-        winrt::com_ptr<IWICBitmapFrameDecode> frame;
-        if (FAILED(dec->GetFrame(0, frame.put())))
-        {
-            return 32;
-        }
-        WICPixelFormatGUID fmt{};
-        if (FAILED(frame->GetPixelFormat(&fmt)))
-        {
-            return 32;
-        }
-        winrt::com_ptr<IWICComponentInfo> ci;
-        if (FAILED(factory->CreateComponentInfo(fmt, ci.put())))
-        {
-            return 32;
-        }
-        auto pfi = ci.try_as<IWICPixelFormatInfo2>();
-        if (!pfi)
-        {
-            return 32;
-        }
-        UINT bpp = 0;
-        pfi->GetBitsPerPixel(&bpp);
-        BOOL transparency = FALSE;
-        pfi->SupportsTransparency(&transparency);
-
-        if (bpp <= 1) { return 1; }
-        if (bpp <= 4) { return 4; }
-        if (bpp == 8) { return 8; }
-        return transparency ? 32 : 24; // truecolour, with or without an alpha channel
-    }
-
     // Soft erase: reduce the destination alpha by coverage.
     winrt::Windows::UI::Color EraseBlend(winrt::Windows::UI::Color const& dst, double coverage)
     {
@@ -2299,30 +2243,15 @@ namespace winrt::IconMaster::implementation
     {
         auto lifetime = get_strong();
 
-        auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::Read);
-        auto decoder = co_await winrt::Windows::Graphics::Imaging::BitmapDecoder::CreateAsync(stream);
-        const uint32_t w = decoder.PixelWidth();
-        const uint32_t h = decoder.PixelHeight();
+        auto img = std::make_shared<IconMaster::LoadedImage>();
+        co_await IconMaster::ImageIO::LoadAsync(file, img);
+
+        const uint32_t w = img->width;
+        const uint32_t h = img->height;
         if (w == 0 || h == 0 || w > 256 || h > 256)
         {
             StatusText().Text(L"Image must be between 1x1 and 256x256.");
             co_return;
-        }
-
-        auto provider = co_await decoder.GetPixelDataAsync(
-            winrt::Windows::Graphics::Imaging::BitmapPixelFormat::Bgra8,
-            winrt::Windows::Graphics::Imaging::BitmapAlphaMode::Straight,
-            winrt::Windows::Graphics::Imaging::BitmapTransform(),
-            winrt::Windows::Graphics::Imaging::ExifOrientationMode::IgnoreExifOrientation,
-            winrt::Windows::Graphics::Imaging::ColorManagementMode::DoNotColorManage);
-        auto bytes = provider.DetachPixelData();
-
-        // Detect the file's declared colour depth (a fresh stream keeps the WIC read
-        // independent of the WinRT decoder above).
-        int32_t mode = 32;
-        {
-            auto detectStream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::Read);
-            mode = DetectColorModeFromStream(detectStream);
         }
 
         // Fill the pixels at 32-bit so the original colours are preserved exactly,
@@ -2333,12 +2262,12 @@ namespace winrt::IconMaster::implementation
         {
             for (uint32_t x = 0; x < w; ++x)
             {
-                const winrt::array_view<uint8_t>::size_type i = (y * w + x) * 4;
-                const winrt::Windows::UI::Color c{ bytes[i + 3], bytes[i + 2], bytes[i + 1], bytes[i + 0] };
+                const size_t i = (static_cast<size_t>(y) * w + x) * 4;
+                const winrt::Windows::UI::Color c{ img->bgra[i + 3], img->bgra[i + 2], img->bgra[i + 1], img->bgra[i + 0] };
                 context.SetPixel(static_cast<int32_t>(x), static_cast<int32_t>(y), c);
             }
         }
-        context.ColorMode(mode);
+        context.ColorMode(img->colorMode);
 
         const auto fit = static_cast<int32_t>(512u / std::max(w, h));
         AddDocument(context, file.Name(), fit);
@@ -2483,49 +2412,8 @@ namespace winrt::IconMaster::implementation
         }
     }
 
-    std::vector<uint8_t> MainWindow::ScaleCanvas(int32_t target)
+    winrt::Windows::Foundation::IAsyncAction MainWindow::WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
     {
-        const int32_t w = doc().context.PixelWidth();
-        const int32_t h = doc().context.PixelHeight();
-        std::vector<uint8_t> out(static_cast<size_t>(target) * target * 4);
-        for (int32_t y = 0; y < target; ++y)
-        {
-            for (int32_t x = 0; x < target; ++x)
-            {
-                const int32_t sx = x * w / target; // nearest-neighbour
-                const int32_t sy = y * h / target;
-                const auto c = CompositePixel(sx, sy);
-                const size_t i = (static_cast<size_t>(y) * target + x) * 4;
-                out[i + 0] = c.B;
-                out[i + 1] = c.G;
-                out[i + 2] = c.R;
-                out[i + 3] = c.A;
-            }
-        }
-        return out;
-    }
-
-    winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> winrt::IconMaster::implementation::MainWindow::PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension)
-    {
-        winrt::Windows::Storage::Pickers::FileSavePicker picker;
-        {
-            auto windowNative = this->try_as<::IWindowNative>();
-            HWND hwnd{};
-            winrt::check_hresult(windowNative->get_WindowHandle(&hwnd));
-            auto initWithWindow = picker.as<::IInitializeWithWindow>();
-            winrt::check_hresult(initWithWindow->Initialize(hwnd));
-        }
-        picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
-        picker.SuggestedFileName(L"icon");
-        picker.FileTypeChoices().Insert(typeName, winrt::single_threaded_vector<winrt::hstring>({ extension }));
-
-        return picker.PickSaveFileAsync();
-    }
-
-    winrt::Windows::Foundation::IAsyncAction winrt::IconMaster::implementation::MainWindow::WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
-    {
-        namespace WGI = winrt::Windows::Graphics::Imaging;
-
         const int32_t w = doc().context.PixelWidth();
         const int32_t h = doc().context.PixelHeight();
         std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
@@ -2541,90 +2429,30 @@ namespace winrt::IconMaster::implementation
                 bytes[i + 3] = c.A;
             }
         }
-
-        auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::ReadWrite);
-        stream.Size(0); // truncate any previous content when overwriting
-        auto encoder = co_await WGI::BitmapEncoder::CreateAsync(encoderId, stream);
-        encoder.SetPixelData(
-            WGI::BitmapPixelFormat::Bgra8,
-            WGI::BitmapAlphaMode::Straight,
-            static_cast<uint32_t>(w), static_cast<uint32_t>(h),
-            96.0, 96.0, bytes);
-        co_await encoder.FlushAsync();
+        co_await IconMaster::ImageIO::SaveImageAsync(file, encoderId, std::move(bytes),
+            static_cast<uint32_t>(w), static_cast<uint32_t>(h));
     }
 
     winrt::Windows::Foundation::IAsyncAction MainWindow::WriteIcoAsync(winrt::Windows::Storage::StorageFile file)
     {
-        auto lifetime = get_strong();
-
-        // Render each icon size to a PNG blob (ICO may embed PNG-compressed images).
-        const std::array<int32_t, 4> sizes { 16, 32, 48, 256 };
-        std::vector<std::vector<uint8_t>> pngs;
-        for (int32_t s : sizes)
+        // Flatten the canvas once; ImageIO scales it to the icon sizes and builds the ICO.
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
+        for (int32_t y = 0; y < h; ++y)
         {
-            const std::vector<uint8_t> bytes = ScaleCanvas(s);
-
-            winrt::Windows::Storage::Streams::InMemoryRandomAccessStream mem;
-            auto encoder = co_await winrt::Windows::Graphics::Imaging::BitmapEncoder::CreateAsync(
-                winrt::Windows::Graphics::Imaging::BitmapEncoder::PngEncoderId(), mem);
-            encoder.SetPixelData(
-                winrt::Windows::Graphics::Imaging::BitmapPixelFormat::Bgra8,
-                winrt::Windows::Graphics::Imaging::BitmapAlphaMode::Straight,
-                static_cast<uint32_t>(s), static_cast<uint32_t>(s),
-                96.0, 96.0, bytes);
-            co_await encoder.FlushAsync();
-
-            const auto len = static_cast<uint32_t>(mem.Size());
-            winrt::Windows::Storage::Streams::DataReader reader(mem.GetInputStreamAt(0));
-            co_await reader.LoadAsync(len);
-            std::vector<uint8_t> png(len);
-            reader.ReadBytes(png);
-            pngs.push_back(std::move(png));
+            for (int32_t x = 0; x < w; ++x)
+            {
+                const auto c = CompositePixel(x, y);
+                const size_t i = (static_cast<size_t>(y) * w + x) * 4;
+                bytes[i + 0] = c.B;
+                bytes[i + 1] = c.G;
+                bytes[i + 2] = c.R;
+                bytes[i + 3] = c.A;
+            }
         }
-
-        const auto putU16 = [](std::vector<uint8_t>& v, uint16_t x)
-        {
-            v.push_back(static_cast<uint8_t>(x & 0xFF));
-            v.push_back(static_cast<uint8_t>((x >> 8) & 0xFF));
-        };
-        const auto putU32 = [](std::vector<uint8_t>& v, uint32_t x)
-        {
-            v.push_back(static_cast<uint8_t>(x & 0xFF));
-            v.push_back(static_cast<uint8_t>((x >> 8) & 0xFF));
-            v.push_back(static_cast<uint8_t>((x >> 16) & 0xFF));
-            v.push_back(static_cast<uint8_t>((x >> 24) & 0xFF));
-        };
-
-        const auto count = static_cast<uint16_t>(std::size(sizes));
-        std::vector<uint8_t> ico;
-
-        // ICONDIR
-        putU16(ico, 0); // reserved
-        putU16(ico, 1); // type = icon
-        putU16(ico, count);
-
-        // ICONDIRENTRY[] — image data starts after the header + all entries.
-        uint32_t offset = 6u + 16u * count;
-        for (size_t k = 0; k < pngs.size(); ++k)
-        {
-            const int32_t s = sizes[k];
-            ico.push_back(static_cast<uint8_t>(s >= 256 ? 0 : s)); // width (0 => 256)
-            ico.push_back(static_cast<uint8_t>(s >= 256 ? 0 : s)); // height
-            ico.push_back(0);  // colour count
-            ico.push_back(0);  // reserved
-            putU16(ico, 1);    // colour planes
-            putU16(ico, 32);   // bits per pixel
-            putU32(ico, static_cast<uint32_t>(pngs[k].size()));
-            putU32(ico, offset);
-            offset += static_cast<uint32_t>(pngs[k].size());
-        }
-
-        for (auto const& png : pngs)
-        {
-            ico.insert(ico.end(), png.begin(), png.end());
-        }
-
-        co_await winrt::Windows::Storage::FileIO::WriteBytesAsync(file, ico);
+        co_await IconMaster::ImageIO::SaveIcoAsync(file, std::move(bytes),
+            static_cast<uint32_t>(w), static_cast<uint32_t>(h));
     }
 
     // ---- History ------------------------------------------------------------

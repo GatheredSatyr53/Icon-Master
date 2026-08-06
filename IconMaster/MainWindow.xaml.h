@@ -92,7 +92,6 @@ namespace winrt::IconMaster::implementation
         void Rotate90(bool clockwise);                  // rotate the canvas a quarter turn
         void RotateArbitrary(double degrees, bool keepSize, double px, double py); // rotate by any angle about a pivot
         void ResetTransient();
-        std::vector<uint8_t> ScaleCanvas(int32_t target); // nearest-neighbour, BGRA8
         winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension); // multi-size ICO
         winrt::Windows::Foundation::IAsyncAction WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId); // default bitmap image
         winrt::Windows::Foundation::IAsyncAction WriteIcoAsync(winrt::Windows::Storage::StorageFile file); // multi-size ICO
