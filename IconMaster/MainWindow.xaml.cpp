@@ -2412,6 +2412,23 @@ namespace winrt::IconMaster::implementation
         }
     }
 
+    winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> MainWindow::PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension)
+    {
+        winrt::Windows::Storage::Pickers::FileSavePicker picker;
+        {
+            auto windowNative = this->try_as<::IWindowNative>();
+            HWND hwnd{};
+            winrt::check_hresult(windowNative->get_WindowHandle(&hwnd));
+            auto initWithWindow = picker.as<::IInitializeWithWindow>();
+            winrt::check_hresult(initWithWindow->Initialize(hwnd));
+        }
+        picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
+        picker.SuggestedFileName(L"icon");
+        picker.FileTypeChoices().Insert(typeName, winrt::single_threaded_vector<winrt::hstring>({ extension }));
+
+        return picker.PickSaveFileAsync();
+    }
+
     winrt::Windows::Foundation::IAsyncAction MainWindow::WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
     {
         const int32_t w = doc().context.PixelWidth();
