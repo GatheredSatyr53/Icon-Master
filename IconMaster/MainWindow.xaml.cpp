@@ -579,6 +579,22 @@ namespace winrt::IconMaster::implementation
         return c;
     }
 
+    void MainWindow::UpdateDepthIndicator()
+    {
+        winrt::hstring label;
+        winrt::hstring tip;
+        switch (doc().colorMode)
+        {
+        case 1:  label = L"1-bit";  tip = L"Black & white (1-bit)"; break;
+        case 4:  label = L"4-bit";  tip = L"16 colours (4-bit)"; break;
+        case 8:  label = L"8-bit";  tip = L"256 colours (8-bit)"; break;
+        case 24: label = L"24-bit"; tip = L"True Color (24-bit)"; break;
+        default: label = L"32-bit"; tip = L"True Color + Alpha (32-bit)"; break;
+        }
+        DepthText().Text(label);
+        ToolTipService::SetToolTip(DepthText(), winrt::box_value(tip));
+    }
+
     winrt::IconMaster::DrawingContext MainWindow::NewLayerContext()
     {
         const int32_t w = doc().context.PixelWidth();
@@ -2738,6 +2754,7 @@ namespace winrt::IconMaster::implementation
         Render();
 
         ZoomText().Text(winrt::to_hstring(doc().zoom * 100) + L"%");
+        UpdateDepthIndicator();
     }
 
     uint8_t* MainWindow::DisplayData()

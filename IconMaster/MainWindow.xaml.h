@@ -180,6 +180,7 @@ namespace winrt::IconMaster::implementation
         winrt::Windows::UI::Color CompositePixel(int32_t x, int32_t y) const; // flatten visible layers at a pixel
         void FlattenActive();                                            // fill m_flat with the composited canvas (for rendering)
         void RebuildLayersUI();                                          // rebuild the layer list + opacity slider
+        void UpdateDepthIndicator();                                     // refresh the colour-depth badge for the active doc
         winrt::IconMaster::DrawingContext NewLayerContext();             // an empty context matching the canvas size
         void BeginLayerRename(winrt::IconMaster::LayerItem const& item); // start inline rename of a layer row
         void CommitLayerRename(winrt::IconMaster::LayerItem const& item, bool apply); // finish rename (apply or cancel)
