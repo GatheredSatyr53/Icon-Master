@@ -670,6 +670,11 @@
                     <ComboBoxItem Content="GIF image (*.gif)" />
                     <ComboBoxItem Content="TIFF image (*.tiff)" />
                     <ComboBoxItem Content="Windows icon (*.ico)" />
+                    <ComboBoxItem Content="Windows cursor (*.cur)" />
+                    <ComboBoxItem Content="Mac OS icon (*.icns)" />
+                    <ComboBoxItem Content="X PixMap (*.xpm)" />
+                    <ComboBoxItem Content="X Bitmap (*.xbm)" />
+                    <ComboBoxItem Content="WAP bitmap (*.wbmp)" />
                 </ComboBox>
             </StackPanel>
         </ContentDialog>
