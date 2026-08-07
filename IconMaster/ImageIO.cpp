@@ -15,9 +15,9 @@ namespace WSS = winrt::Windows::Storage::Streams;
 
 namespace
 {
-    // Read a bitmap's declared colour depth via WIC and map it to a DrawingContext
-    // colour mode (1/4/8/24/32). Returns 32 if the format can't be determined.
-    int32_t DetectColorModeFromStream(WSS::IRandomAccessStream const& ras)
+    // Read a bitmap frame's declared colour depth via WIC and map it to a
+    // DrawingContext colour mode (1/4/8/24/32). Returns 32 if it can't be read.
+    int32_t DetectColorModeFromStream(WSS::IRandomAccessStream const& ras, uint32_t frameIndex)
     {
         winrt::com_ptr<IStream> stm;
         if (FAILED(CreateStreamOverRandomAccessStream(winrt::get_unknown(ras), __uuidof(IStream), stm.put_void())))
@@ -36,7 +36,7 @@ namespace
             return 32;
         }
         winrt::com_ptr<IWICBitmapFrameDecode> frame;
-        if (FAILED(dec->GetFrame(0, frame.put())))
+        if (FAILED(dec->GetFrame(frameIndex, frame.put())))
         {
             return 32;
         }
@@ -95,10 +95,30 @@ namespace IconMaster
     {
         auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::Read);
         auto decoder = co_await WGI::BitmapDecoder::CreateAsync(stream);
-        out->width = decoder.PixelWidth();
-        out->height = decoder.PixelHeight();
 
-        auto provider = co_await decoder.GetPixelDataAsync(
+        // Multi-frame containers (ICO) hold several sizes; pick the largest frame
+        // that still fits the editor's 256px limit. Single-frame formats leave
+        // this at frame 0.
+        uint32_t best = 0;
+        uint32_t bestW = 0;
+        const uint32_t frameCount = decoder.FrameCount();
+        for (uint32_t i = 0; i < frameCount; ++i)
+        {
+            auto f = co_await decoder.GetFrameAsync(i);
+            const uint32_t fw = f.PixelWidth();
+            const uint32_t fh = f.PixelHeight();
+            if (fw <= 256 && fh <= 256 && fw > bestW)
+            {
+                bestW = fw;
+                best = i;
+            }
+        }
+
+        auto frame = co_await decoder.GetFrameAsync(best);
+        out->width = frame.PixelWidth();
+        out->height = frame.PixelHeight();
+
+        auto provider = co_await frame.GetPixelDataAsync(
             WGI::BitmapPixelFormat::Bgra8,
             WGI::BitmapAlphaMode::Straight,
             WGI::BitmapTransform(),
@@ -109,7 +129,7 @@ namespace IconMaster
 
         // A fresh stream keeps the WIC depth read independent of the decoder above.
         auto detectStream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::Read);
-        out->colorMode = DetectColorModeFromStream(detectStream);
+        out->colorMode = DetectColorModeFromStream(detectStream, best);
     }
 
     winrt::Windows::Foundation::IAsyncAction ImageIO::SaveImageAsync(
