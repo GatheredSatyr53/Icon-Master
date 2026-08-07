@@ -2411,12 +2411,32 @@ namespace winrt::IconMaster::implementation
 
     winrt::fire_and_forget MainWindow::OnSave(IInspectable const& sender, RoutedEventArgs const& args)
     {
+        auto lifetime = get_strong();
+
         winrt::hstring filePath = doc().associatedFile.path;
         if (filePath.empty()) {
             OnSaveAs(sender, args);
+            co_return;
         }
-        else {
-            auto file = co_await winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(filePath);
+
+        // The associated file can be gone (deleted, moved, renamed, or on an
+        // unplugged drive) since it was opened; GetFileFromPathAsync then throws.
+        // Fall back to Save As so the app prompts for a new location instead of
+        // crashing out of this fire_and_forget coroutine.
+        winrt::Windows::Storage::StorageFile file{ nullptr };
+        try
+        {
+            file = co_await winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(filePath);
+        }
+        catch (winrt::hresult_error const&)
+        {
+            StatusText().Text(L"\"" + filePath + L"\" is no longer available - choose a new location.");
+            OnSaveAs(sender, args);
+            co_return;
+        }
+
+        try
+        {
             if (doc().associatedFile.isIco)
             {
                 co_await WriteIcoAsync(file);
@@ -2426,6 +2446,10 @@ namespace winrt::IconMaster::implementation
                 co_await WriteSingleLayerImageAsync(file, doc().associatedFile.encoder);
             }
             StatusText().Text(L"Saved " + filePath);
+        }
+        catch (winrt::hresult_error const& e)
+        {
+            StatusText().Text(L"Could not save \"" + filePath + L"\": " + e.message());
         }
     }
 
