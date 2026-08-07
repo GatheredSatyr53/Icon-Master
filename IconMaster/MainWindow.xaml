@@ -374,11 +374,20 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Button Content="&#x2212;" Click="OnZoomOut" ToolTipService.ToolTip="Zoom out" />
-                    <TextBlock x:Name="ZoomText" VerticalAlignment="Center" MinWidth="52" TextAlignment="Center" Text="1600%" />
-                    <Button Content="&#x2b;" Click="OnZoomIn" ToolTipService.ToolTip="Zoom in" />
-                </StackPanel>
+                <Grid Grid.Row="0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
+                        <Button Content="&#x2212;" Click="OnZoomOut" ToolTipService.ToolTip="Zoom out" />
+                        <TextBlock x:Name="ZoomText" VerticalAlignment="Center" MinWidth="52" TextAlignment="Center" Text="1600%" />
+                        <Button Content="&#x2b;" Click="OnZoomIn" ToolTipService.ToolTip="Zoom in" />
+                    </StackPanel>
+                    <Border HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Background="{ThemeResource LayerFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1"
+                            CornerRadius="4" Padding="8,2">
+                        <TextBlock x:Name="DepthText" Text="32-bit"
+                                   Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center" />
+                    </Border>
+                </Grid>
 
                 <ScrollViewer Grid.Row="1"
                           ZoomMode="Disabled"
@@ -629,13 +638,12 @@
                         <local:SizeInput x:Name="NewDims" />
                     </StackPanel>
                     <StackPanel Spacing="6">
-                        <!-- Shown for parity; the engine is always 32-bit BGRA, so this is fixed. -->
                         <TextBlock Text="Colours" />
-                        <RadioButton Content="Black &amp; white (1-bit)" GroupName="newdepth" IsEnabled="False" />
-                        <RadioButton Content="16 colours (4-bit)" GroupName="newdepth" IsEnabled="False" />
-                        <RadioButton Content="256 colours (8-bit)" GroupName="newdepth" IsEnabled="False" />
-                        <RadioButton Content="True Color (24-bit)" GroupName="newdepth" IsEnabled="False" />
-                        <RadioButton Content="True Color + Alpha (32-bit)" GroupName="newdepth" IsChecked="True" IsEnabled="False" />
+                        <RadioButton x:Name="Depth1" Content="Black &amp; white (1-bit)" GroupName="newdepth" Tag="1" />
+                        <RadioButton x:Name="Depth4" Content="16 colours (4-bit)" GroupName="newdepth" Tag="4" />
+                        <RadioButton x:Name="Depth8" Content="256 colours (8-bit)" GroupName="newdepth" Tag="8" />
+                        <RadioButton x:Name="Depth24" Content="True Color (24-bit)" GroupName="newdepth" Tag="24" />
+                        <RadioButton x:Name="Depth32" Content="True Color + Alpha (32-bit)" GroupName="newdepth" Tag="32" IsChecked="True" />
                     </StackPanel>
                 </StackPanel>
                 <CheckBox x:Name="NewDontAsk" Content="Don't ask again" />

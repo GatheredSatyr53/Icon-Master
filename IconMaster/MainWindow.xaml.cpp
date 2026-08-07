@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "MainWindow.xaml.h"
 #include "LayerItem.h"
+#include "ImageIO.h"
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
 #endif
@@ -87,7 +88,6 @@ namespace
         }
         return nullptr;
     }
-
     // Soft erase: reduce the destination alpha by coverage.
     winrt::Windows::UI::Color EraseBlend(winrt::Windows::UI::Color const& dst, double coverage)
     {
@@ -572,11 +572,34 @@ namespace winrt::IconMaster::implementation
 
     // ---- Layers -------------------------------------------------------------
 
+    winrt::IconMaster::DrawingContext MainWindow::MakeContext(int32_t w, int32_t h)
+    {
+        auto c = winrt::IconMaster::DrawingContext(w, h);
+        c.ColorMode(doc().colorMode);
+        return c;
+    }
+
+    void MainWindow::UpdateDepthIndicator()
+    {
+        winrt::hstring label;
+        winrt::hstring tip;
+        switch (doc().colorMode)
+        {
+        case 1:  label = L"1-bit";  tip = L"Black & white (1-bit)"; break;
+        case 4:  label = L"4-bit";  tip = L"16 colours (4-bit)"; break;
+        case 8:  label = L"8-bit";  tip = L"256 colours (8-bit)"; break;
+        case 24: label = L"24-bit"; tip = L"True Color (24-bit)"; break;
+        default: label = L"32-bit"; tip = L"True Color + Alpha (32-bit)"; break;
+        }
+        DepthText().Text(label);
+        ToolTipService::SetToolTip(DepthText(), winrt::box_value(tip));
+    }
+
     winrt::IconMaster::DrawingContext MainWindow::NewLayerContext()
     {
         const int32_t w = doc().context.PixelWidth();
         const int32_t h = doc().context.PixelHeight();
-        return winrt::IconMaster::DrawingContext(w, h);
+        return MakeContext(w, h);
     }
 
     void MainWindow::SyncActiveContext()
@@ -1658,6 +1681,7 @@ namespace winrt::IconMaster::implementation
         d.activeLayer = 0;
         d.layerCounter = 1;
         d.context = context;
+        d.colorMode = context.ColorMode();
         d.zoom = std::clamp(zoom, k_minZoom, k_maxZoom);
         d.title = title;
         m_docs.push_back(std::move(d));
@@ -1686,11 +1710,12 @@ namespace winrt::IconMaster::implementation
         return std::clamp(512 / maxDim, k_minZoom, k_maxZoom);
     }
 
-    void MainWindow::NewDocument(int32_t w, int32_t h)
+    void MainWindow::NewDocument(int32_t w, int32_t h, int32_t colorMode)
     {
         w = std::clamp(w, 1, 1024);
         h = std::clamp(h, 1, 1024);
         auto context = winrt::IconMaster::DrawingContext(w, h);
+        context.ColorMode(colorMode);
         context.Color(ColorPickerControl().Color());
         m_docCounter += 1;
         AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), FitZoom(std::max(w, h)));
@@ -1736,6 +1761,16 @@ namespace winrt::IconMaster::implementation
             if (preset != nullptr) { preset.IsChecked(true); }
             else                   { SizeOther().IsChecked(true); }
 
+            // Seed the remembered colour depth.
+            switch (m_newMode)
+            {
+            case 1:  Depth1().IsChecked(true);  break;
+            case 4:  Depth4().IsChecked(true);  break;
+            case 8:  Depth8().IsChecked(true);  break;
+            case 24: Depth24().IsChecked(true); break;
+            default: Depth32().IsChecked(true); break;
+            }
+
             if (NewIconDialog().XamlRoot() == nullptr)
             {
                 NewIconDialog().XamlRoot(this->Content().XamlRoot());
@@ -1750,6 +1785,17 @@ namespace winrt::IconMaster::implementation
             m_newW = w;
             m_newH = h;
 
+            auto checked = [](winrt::Microsoft::UI::Xaml::Controls::RadioButton const& rb)
+            {
+                auto v = rb.IsChecked();
+                return v && v.Value();
+            };
+            if (checked(Depth1()))       { m_newMode = 1; }
+            else if (checked(Depth4()))  { m_newMode = 4; }
+            else if (checked(Depth8()))  { m_newMode = 8; }
+            else if (checked(Depth24())) { m_newMode = 24; }
+            else                         { m_newMode = 32; }
+
             auto ask = NewDontAsk().IsChecked();
             if (ask && ask.Value())
             {
@@ -1757,7 +1803,7 @@ namespace winrt::IconMaster::implementation
             }
         }
 
-        NewDocument(w, h);
+        NewDocument(w, h, m_newMode);
     }
 
     void MainWindow::ResizeCanvas(int32_t newW, int32_t newH)
@@ -1781,7 +1827,7 @@ namespace winrt::IconMaster::implementation
         const int32_t copyH = std::min(oldH, newH);
         for (auto& layer : doc().layers)
         {
-            auto resized = winrt::IconMaster::DrawingContext(newW, newH);
+            auto resized = MakeContext(newW, newH);
             resized.Color(layer.context.Color());
             for (int32_t y = 0; y < copyH; ++y)
             {
@@ -1867,7 +1913,7 @@ namespace winrt::IconMaster::implementation
         // A quarter turn swaps the dimensions (w x h -> h x w), for every layer.
         for (auto& layer : doc().layers)
         {
-            auto rotated = winrt::IconMaster::DrawingContext(h, w);
+            auto rotated = MakeContext(h, w);
             rotated.Color(layer.context.Color());
             for (int32_t y = 0; y < h; ++y)
             {
@@ -1955,7 +2001,7 @@ namespace winrt::IconMaster::implementation
 
         for (auto& layer : doc().layers)
         {
-            auto rotated = winrt::IconMaster::DrawingContext(nw, nh);
+            auto rotated = MakeContext(nw, nh);
             rotated.Color(layer.context.Color());
             for (int32_t dy = 0; dy < nh; ++dy)
             {
@@ -2197,35 +2243,31 @@ namespace winrt::IconMaster::implementation
     {
         auto lifetime = get_strong();
 
-        auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::Read);
-        auto decoder = co_await winrt::Windows::Graphics::Imaging::BitmapDecoder::CreateAsync(stream);
-        const uint32_t w = decoder.PixelWidth();
-        const uint32_t h = decoder.PixelHeight();
+        auto img = std::make_shared<::IconMaster::LoadedImage>();
+        co_await ::IconMaster::ImageIO::LoadAsync(file, img);
+
+        const uint32_t w = img->width;
+        const uint32_t h = img->height;
         if (w == 0 || h == 0 || w > 256 || h > 256)
         {
             StatusText().Text(L"Image must be between 1x1 and 256x256.");
             co_return;
         }
 
-        auto provider = co_await decoder.GetPixelDataAsync(
-            winrt::Windows::Graphics::Imaging::BitmapPixelFormat::Bgra8,
-            winrt::Windows::Graphics::Imaging::BitmapAlphaMode::Straight,
-            winrt::Windows::Graphics::Imaging::BitmapTransform(),
-            winrt::Windows::Graphics::Imaging::ExifOrientationMode::IgnoreExifOrientation,
-            winrt::Windows::Graphics::Imaging::ColorManagementMode::DoNotColorManage);
-        auto bytes = provider.DetachPixelData();
-
+        // Fill the pixels at 32-bit so the original colours are preserved exactly,
+        // then apply the detected mode so the badge and future edits reflect it.
         auto context = winrt::IconMaster::DrawingContext(static_cast<int32_t>(w), static_cast<int32_t>(h));
         context.Color(ColorPickerControl().Color());
         for (uint32_t y = 0; y < h; ++y)
         {
             for (uint32_t x = 0; x < w; ++x)
             {
-                const winrt::array_view<uint8_t>::size_type i = (y * w + x) * 4;
-                const winrt::Windows::UI::Color c{ bytes[i + 3], bytes[i + 2], bytes[i + 1], bytes[i + 0] };
+                const size_t i = (static_cast<size_t>(y) * w + x) * 4;
+                const winrt::Windows::UI::Color c{ img->bgra[i + 3], img->bgra[i + 2], img->bgra[i + 1], img->bgra[i + 0] };
                 context.SetPixel(static_cast<int32_t>(x), static_cast<int32_t>(y), c);
             }
         }
+        context.ColorMode(img->colorMode);
 
         const auto fit = static_cast<int32_t>(512u / std::max(w, h));
         AddDocument(context, file.Name(), fit);
@@ -2370,29 +2412,7 @@ namespace winrt::IconMaster::implementation
         }
     }
 
-    std::vector<uint8_t> MainWindow::ScaleCanvas(int32_t target)
-    {
-        const int32_t w = doc().context.PixelWidth();
-        const int32_t h = doc().context.PixelHeight();
-        std::vector<uint8_t> out(static_cast<size_t>(target) * target * 4);
-        for (int32_t y = 0; y < target; ++y)
-        {
-            for (int32_t x = 0; x < target; ++x)
-            {
-                const int32_t sx = x * w / target; // nearest-neighbour
-                const int32_t sy = y * h / target;
-                const auto c = CompositePixel(sx, sy);
-                const size_t i = (static_cast<size_t>(y) * target + x) * 4;
-                out[i + 0] = c.B;
-                out[i + 1] = c.G;
-                out[i + 2] = c.R;
-                out[i + 3] = c.A;
-            }
-        }
-        return out;
-    }
-
-    winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> winrt::IconMaster::implementation::MainWindow::PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension)
+    winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> MainWindow::PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension)
     {
         winrt::Windows::Storage::Pickers::FileSavePicker picker;
         {
@@ -2409,10 +2429,8 @@ namespace winrt::IconMaster::implementation
         return picker.PickSaveFileAsync();
     }
 
-    winrt::Windows::Foundation::IAsyncAction winrt::IconMaster::implementation::MainWindow::WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
+    winrt::Windows::Foundation::IAsyncAction MainWindow::WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
     {
-        namespace WGI = winrt::Windows::Graphics::Imaging;
-
         const int32_t w = doc().context.PixelWidth();
         const int32_t h = doc().context.PixelHeight();
         std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
@@ -2428,90 +2446,30 @@ namespace winrt::IconMaster::implementation
                 bytes[i + 3] = c.A;
             }
         }
-
-        auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::ReadWrite);
-        stream.Size(0); // truncate any previous content when overwriting
-        auto encoder = co_await WGI::BitmapEncoder::CreateAsync(encoderId, stream);
-        encoder.SetPixelData(
-            WGI::BitmapPixelFormat::Bgra8,
-            WGI::BitmapAlphaMode::Straight,
-            static_cast<uint32_t>(w), static_cast<uint32_t>(h),
-            96.0, 96.0, bytes);
-        co_await encoder.FlushAsync();
+        co_await ::IconMaster::ImageIO::SaveImageAsync(file, encoderId, std::move(bytes),
+            static_cast<uint32_t>(w), static_cast<uint32_t>(h));
     }
 
     winrt::Windows::Foundation::IAsyncAction MainWindow::WriteIcoAsync(winrt::Windows::Storage::StorageFile file)
     {
-        auto lifetime = get_strong();
-
-        // Render each icon size to a PNG blob (ICO may embed PNG-compressed images).
-        const std::array<int32_t, 4> sizes { 16, 32, 48, 256 };
-        std::vector<std::vector<uint8_t>> pngs;
-        for (int32_t s : sizes)
+        // Flatten the canvas once; ImageIO scales it to the icon sizes and builds the ICO.
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
+        for (int32_t y = 0; y < h; ++y)
         {
-            const std::vector<uint8_t> bytes = ScaleCanvas(s);
-
-            winrt::Windows::Storage::Streams::InMemoryRandomAccessStream mem;
-            auto encoder = co_await winrt::Windows::Graphics::Imaging::BitmapEncoder::CreateAsync(
-                winrt::Windows::Graphics::Imaging::BitmapEncoder::PngEncoderId(), mem);
-            encoder.SetPixelData(
-                winrt::Windows::Graphics::Imaging::BitmapPixelFormat::Bgra8,
-                winrt::Windows::Graphics::Imaging::BitmapAlphaMode::Straight,
-                static_cast<uint32_t>(s), static_cast<uint32_t>(s),
-                96.0, 96.0, bytes);
-            co_await encoder.FlushAsync();
-
-            const auto len = static_cast<uint32_t>(mem.Size());
-            winrt::Windows::Storage::Streams::DataReader reader(mem.GetInputStreamAt(0));
-            co_await reader.LoadAsync(len);
-            std::vector<uint8_t> png(len);
-            reader.ReadBytes(png);
-            pngs.push_back(std::move(png));
+            for (int32_t x = 0; x < w; ++x)
+            {
+                const auto c = CompositePixel(x, y);
+                const size_t i = (static_cast<size_t>(y) * w + x) * 4;
+                bytes[i + 0] = c.B;
+                bytes[i + 1] = c.G;
+                bytes[i + 2] = c.R;
+                bytes[i + 3] = c.A;
+            }
         }
-
-        const auto putU16 = [](std::vector<uint8_t>& v, uint16_t x)
-        {
-            v.push_back(static_cast<uint8_t>(x & 0xFF));
-            v.push_back(static_cast<uint8_t>((x >> 8) & 0xFF));
-        };
-        const auto putU32 = [](std::vector<uint8_t>& v, uint32_t x)
-        {
-            v.push_back(static_cast<uint8_t>(x & 0xFF));
-            v.push_back(static_cast<uint8_t>((x >> 8) & 0xFF));
-            v.push_back(static_cast<uint8_t>((x >> 16) & 0xFF));
-            v.push_back(static_cast<uint8_t>((x >> 24) & 0xFF));
-        };
-
-        const auto count = static_cast<uint16_t>(std::size(sizes));
-        std::vector<uint8_t> ico;
-
-        // ICONDIR
-        putU16(ico, 0); // reserved
-        putU16(ico, 1); // type = icon
-        putU16(ico, count);
-
-        // ICONDIRENTRY[] — image data starts after the header + all entries.
-        uint32_t offset = 6u + 16u * count;
-        for (size_t k = 0; k < pngs.size(); ++k)
-        {
-            const int32_t s = sizes[k];
-            ico.push_back(static_cast<uint8_t>(s >= 256 ? 0 : s)); // width (0 => 256)
-            ico.push_back(static_cast<uint8_t>(s >= 256 ? 0 : s)); // height
-            ico.push_back(0);  // colour count
-            ico.push_back(0);  // reserved
-            putU16(ico, 1);    // colour planes
-            putU16(ico, 32);   // bits per pixel
-            putU32(ico, static_cast<uint32_t>(pngs[k].size()));
-            putU32(ico, offset);
-            offset += static_cast<uint32_t>(pngs[k].size());
-        }
-
-        for (auto const& png : pngs)
-        {
-            ico.insert(ico.end(), png.begin(), png.end());
-        }
-
-        co_await winrt::Windows::Storage::FileIO::WriteBytesAsync(file, ico);
+        co_await ::IconMaster::ImageIO::SaveIcoAsync(file, std::move(bytes),
+            static_cast<uint32_t>(w), static_cast<uint32_t>(h));
     }
 
     // ---- History ------------------------------------------------------------
@@ -2558,7 +2516,7 @@ namespace winrt::IconMaster::implementation
         for (auto const& ls : snap.layers)
         {
             Layer layer;
-            layer.context = winrt::IconMaster::DrawingContext(snap.w, snap.h);
+            layer.context = MakeContext(snap.w, snap.h);
             layer.context.Color(color);
             layer.name = ls.name;
             layer.visible = ls.visible;
@@ -2655,7 +2613,7 @@ namespace winrt::IconMaster::implementation
     void MainWindow::OnAddTab(winrt::Microsoft::UI::Xaml::Controls::TabView const&, IInspectable const&)
     {
         // The tab "+" button is a quick add: reuse the last chosen size without a prompt.
-        NewDocument(m_newW, m_newH);
+        NewDocument(m_newW, m_newH, m_newMode);
     }
 
     void MainWindow::OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const&, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args)
@@ -2708,6 +2666,7 @@ namespace winrt::IconMaster::implementation
         Render();
 
         ZoomText().Text(winrt::to_hstring(doc().zoom * 100) + L"%");
+        UpdateDepthIndicator();
     }
 
     uint8_t* MainWindow::DisplayData()

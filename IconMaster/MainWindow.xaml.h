@@ -82,7 +82,8 @@ namespace winrt::IconMaster::implementation
         void OnTabCloseRequested(winrt::Microsoft::UI::Xaml::Controls::TabView const& sender, winrt::Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const& args);
 
     private:
-        void NewDocument(int32_t w, int32_t h);
+        void NewDocument(int32_t w, int32_t h, int32_t colorMode);
+        winrt::IconMaster::DrawingContext MakeContext(int32_t w, int32_t h); // context sized w*h, carrying the active doc's colour mode
         void AddDocument(winrt::IconMaster::DrawingContext const& context, winrt::hstring const& title, int32_t zoom);
         static int32_t FitZoom(int32_t maxDim);        // zoom that fits a maxDim-wide canvas on screen
         void ResizeCanvas(int32_t newW, int32_t newH); // resize the active canvas, top-left anchored
@@ -91,7 +92,6 @@ namespace winrt::IconMaster::implementation
         void Rotate90(bool clockwise);                  // rotate the canvas a quarter turn
         void RotateArbitrary(double degrees, bool keepSize, double px, double py); // rotate by any angle about a pivot
         void ResetTransient();
-        std::vector<uint8_t> ScaleCanvas(int32_t target); // nearest-neighbour, BGRA8
         winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension); // multi-size ICO
         winrt::Windows::Foundation::IAsyncAction WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId); // default bitmap image
         winrt::Windows::Foundation::IAsyncAction WriteIcoAsync(winrt::Windows::Storage::StorageFile file); // multi-size ICO
@@ -153,6 +153,7 @@ namespace winrt::IconMaster::implementation
             std::vector<Layer> layers;
             size_t activeLayer{ 0 };
             int32_t layerCounter{ 0 }; // for default layer names
+            int32_t colorMode{ 32 };   // colour depth applied to every layer (32/24/8/4/1)
             int32_t zoom{ 16 };
             bool hasSelection{ false };
             int32_t selX{ 0 };
@@ -178,6 +179,7 @@ namespace winrt::IconMaster::implementation
         winrt::Windows::UI::Color CompositePixel(int32_t x, int32_t y) const; // flatten visible layers at a pixel
         void FlattenActive();                                            // fill m_flat with the composited canvas (for rendering)
         void RebuildLayersUI();                                          // rebuild the layer list + opacity slider
+        void UpdateDepthIndicator();                                     // refresh the colour-depth badge for the active doc
         winrt::IconMaster::DrawingContext NewLayerContext();             // an empty context matching the canvas size
         void BeginLayerRename(winrt::IconMaster::LayerItem const& item); // start inline rename of a layer row
         void CommitLayerRename(winrt::IconMaster::LayerItem const& item, bool apply); // finish rename (apply or cancel)
@@ -289,6 +291,7 @@ namespace winrt::IconMaster::implementation
         int32_t m_docCounter{ 0 };     // for default document titles
 
         // Remembered "New icon" dialog choices.
+        int32_t m_newMode{ 32 };       // remembered "New icon" colour depth
         int32_t m_newW{ k_canvasSize };
         int32_t m_newH{ k_canvasSize };
         bool m_askOnNew{ true };        // false => "Don't ask again": reuse the remembered size
