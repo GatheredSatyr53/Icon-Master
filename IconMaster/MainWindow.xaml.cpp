@@ -2440,17 +2440,14 @@ namespace winrt::IconMaster::implementation
             winrt::check_hresult(initWithWindow->Initialize(hwnd));
         }
         picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
-        // The macOS @2x convention is a filename suffix; it doesn't apply to multi-size ICO.
-        picker.SuggestedFileName((doc().retina2x && extension != L".ico") ? L"icon@2x" : L"icon");
+        picker.SuggestedFileName(L"icon"); // the @2x companion (if any) is derived from this at write time
         picker.FileTypeChoices().Insert(typeName, winrt::single_threaded_vector<winrt::hstring>({ extension }));
 
         return picker.PickSaveFileAsync();
     }
 
-    winrt::Windows::Foundation::IAsyncAction MainWindow::WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
+    std::vector<uint8_t> MainWindow::CompositeToBytes(int32_t w, int32_t h) const
     {
-        const int32_t w = doc().context.PixelWidth();
-        const int32_t h = doc().context.PixelHeight();
         std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
         for (int32_t y = 0; y < h; ++y)
         {
@@ -2464,8 +2461,65 @@ namespace winrt::IconMaster::implementation
                 bytes[i + 3] = c.A;
             }
         }
-        co_await ::IconMaster::ImageIO::SaveImageAsync(file, encoderId, std::move(bytes),
+        return bytes;
+    }
+
+    winrt::Windows::Foundation::IAsyncAction MainWindow::WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
+    {
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        co_await ::IconMaster::ImageIO::SaveImageAsync(file, encoderId, CompositeToBytes(w, h),
             static_cast<uint32_t>(w), static_cast<uint32_t>(h));
+
+        // With @2x on, also write a double-resolution companion next to the file.
+        if (doc().retina2x)
+        {
+            co_await WriteRetinaSiblingAsync(file, encoderId);
+        }
+    }
+
+    winrt::Windows::Foundation::IAsyncAction MainWindow::WriteRetinaSiblingAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
+    {
+        // The save picker grants access to the chosen file; the containing folder is
+        // needed to drop the companion beside it. If it isn't available, keep the 1x.
+        auto parent = co_await file.GetParentAsync();
+        if (parent == nullptr)
+        {
+            StatusText().Text(L"Saved 1x only — no folder access for the @2x file.");
+            co_return;
+        }
+
+        // Insert "@2x" before the extension: icon.png -> icon@2x.png.
+        const std::wstring name{ file.Name() };
+        const std::wstring ext{ file.FileType() };
+        const std::wstring stem = (name.size() >= ext.size()) ? name.substr(0, name.size() - ext.size()) : name;
+        const winrt::hstring siblingName{ stem + L"@2x" + ext };
+
+        auto sibling = co_await parent.CreateFileAsync(
+            siblingName, winrt::Windows::Storage::CreationCollisionOption::ReplaceExisting);
+
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        const auto src = CompositeToBytes(w, h);
+
+        // Nearest-neighbour 2x upscale (crisp pixels for pixel art).
+        const int32_t w2 = w * 2;
+        const int32_t h2 = h * 2;
+        std::vector<uint8_t> dst(static_cast<size_t>(w2) * h2 * 4);
+        for (int32_t y = 0; y < h2; ++y)
+        {
+            for (int32_t x = 0; x < w2; ++x)
+            {
+                const size_t si = (static_cast<size_t>(y / 2) * w + (x / 2)) * 4;
+                const size_t di = (static_cast<size_t>(y) * w2 + x) * 4;
+                dst[di + 0] = src[si + 0];
+                dst[di + 1] = src[si + 1];
+                dst[di + 2] = src[si + 2];
+                dst[di + 3] = src[si + 3];
+            }
+        }
+        co_await ::IconMaster::ImageIO::SaveImageAsync(sibling, encoderId, std::move(dst),
+            static_cast<uint32_t>(w2), static_cast<uint32_t>(h2));
     }
 
     winrt::Windows::Foundation::IAsyncAction MainWindow::WriteIcoAsync(winrt::Windows::Storage::StorageFile file)

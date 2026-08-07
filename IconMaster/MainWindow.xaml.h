@@ -94,6 +94,8 @@ namespace winrt::IconMaster::implementation
         void ResetTransient();
         winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension); // multi-size ICO
         winrt::Windows::Foundation::IAsyncAction WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId); // default bitmap image
+        winrt::Windows::Foundation::IAsyncAction WriteRetinaSiblingAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId); // @2x companion at double resolution
+        std::vector<uint8_t> CompositeToBytes(int32_t w, int32_t h) const; // flatten visible layers to straight BGRA8
         winrt::Windows::Foundation::IAsyncAction WriteIcoAsync(winrt::Windows::Storage::StorageFile file); // multi-size ICO
         winrt::Windows::Foundation::IAsyncAction LoadImageFileAsync(winrt::Windows::Storage::StorageFile file); // decode into a new document
         void AddToRecent(winrt::Windows::Storage::StorageFile const& file); // register in the MRU + refresh menu
