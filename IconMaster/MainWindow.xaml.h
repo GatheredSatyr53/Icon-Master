@@ -13,6 +13,10 @@ namespace winrt::IconMaster::implementation
     {
         MainWindow();
 
+        // How a document's file is written. WicImage uses the AssociatedFile.encoder
+        // guid; the rest are hand-rolled container/text formats in ImageIO.
+        enum class SaveKind { WicImage, Ico, Cur, Icns, Xpm, Xbm, Wbmp };
+
         void OpenFromArgument(winrt::hstring const& argument); // reopen a file from a jump-list "open:<token>" launch argument
 
         void OnToolSelected(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -94,6 +98,10 @@ namespace winrt::IconMaster::implementation
         void ResetTransient();
         winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> PickSaveFileAsync(winrt::hstring const& typeName, winrt::hstring const& extension); // multi-size ICO
         winrt::Windows::Foundation::IAsyncAction WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId); // default bitmap image
+        winrt::Windows::Foundation::IAsyncAction WriteRetinaSiblingAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId); // @2x companion at double resolution
+        winrt::Windows::Foundation::IAsyncAction WriteByKindAsync(winrt::Windows::Storage::StorageFile file, SaveKind kind, winrt::guid encoderId); // dispatch to the right writer
+        std::vector<uint8_t> CompositeToBytes(int32_t w, int32_t h) const; // flatten visible layers to straight BGRA8
+        static winrt::hstring FileStemIdentifier(winrt::hstring const& fileName); // sanitise a filename stem into a C identifier for XPM/XBM
         winrt::Windows::Foundation::IAsyncAction WriteIcoAsync(winrt::Windows::Storage::StorageFile file); // multi-size ICO
         winrt::Windows::Foundation::IAsyncAction LoadImageFileAsync(winrt::Windows::Storage::StorageFile file); // decode into a new document
         void AddToRecent(winrt::Windows::Storage::StorageFile const& file); // register in the MRU + refresh menu
@@ -142,7 +150,7 @@ namespace winrt::IconMaster::implementation
             winrt::hstring typeName;
             winrt::hstring extension;
             winrt::guid encoder{};
-            bool isIco{ false };
+            SaveKind kind{ SaveKind::WicImage };
         };
 
         struct Document
@@ -165,6 +173,8 @@ namespace winrt::IconMaster::implementation
             std::vector<Snapshot> redo;
             winrt::hstring title;
             AssociatedFile associatedFile;
+            bool pngCompressIco{ true }; // ICO frames as PNG (smaller, Win7+) vs uncompressed BMP
+            bool retina2x{ false };      // tag exports with the macOS @2x filename suffix
         };
         Document& doc() { return m_docs[m_active]; }
         Document const& doc() const { return m_docs[m_active]; }
@@ -294,6 +304,8 @@ namespace winrt::IconMaster::implementation
         int32_t m_newMode{ 32 };       // remembered "New icon" colour depth
         int32_t m_newW{ k_canvasSize };
         int32_t m_newH{ k_canvasSize };
+        bool m_newPngCompress{ true };  // remembered "PNG compression" export flag
+        bool m_newRetina2x{ false };    // remembered "@2x (macOS)" export flag
         bool m_askOnNew{ true };        // false => "Don't ask again": reuse the remembered size
 
         winrt::IconMaster::Pen m_pen{ nullptr };
