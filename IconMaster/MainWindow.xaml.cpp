@@ -2228,7 +2228,11 @@ namespace winrt::IconMaster::implementation
         }
         picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
         picker.ViewMode(winrt::Windows::Storage::Pickers::PickerViewMode::Thumbnail);
-        picker.FileTypeFilter().Append(L".png");
+        // Every format the editor can round-trip (see the Save-As formats).
+        for (auto const& ext : { L".png", L".bmp", L".jpg", L".jpeg", L".gif", L".tif", L".tiff", L".ico" })
+        {
+            picker.FileTypeFilter().Append(ext);
+        }
 
         auto file = co_await picker.PickSingleFileAsync();
         if (file == nullptr)
