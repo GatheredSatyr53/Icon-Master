@@ -165,6 +165,8 @@ namespace winrt::IconMaster::implementation
             std::vector<Snapshot> redo;
             winrt::hstring title;
             AssociatedFile associatedFile;
+            bool pngCompressIco{ true }; // ICO frames as PNG (smaller, Win7+) vs uncompressed BMP
+            bool retina2x{ false };      // tag exports with the macOS @2x filename suffix
         };
         Document& doc() { return m_docs[m_active]; }
         Document const& doc() const { return m_docs[m_active]; }
@@ -294,6 +296,8 @@ namespace winrt::IconMaster::implementation
         int32_t m_newMode{ 32 };       // remembered "New icon" colour depth
         int32_t m_newW{ k_canvasSize };
         int32_t m_newH{ k_canvasSize };
+        bool m_newPngCompress{ true };  // remembered "PNG compression" export flag
+        bool m_newRetina2x{ false };    // remembered "@2x (macOS)" export flag
         bool m_askOnNew{ true };        // false => "Don't ask again": reuse the remembered size
 
         winrt::IconMaster::Pen m_pen{ nullptr };

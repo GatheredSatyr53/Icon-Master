@@ -646,7 +646,13 @@
                         <RadioButton x:Name="Depth32" Content="True Color + Alpha (32-bit)" GroupName="newdepth" Tag="32" IsChecked="True" />
                     </StackPanel>
                 </StackPanel>
-                <CheckBox x:Name="NewDontAsk" Content="Don't ask again" />
+                <StackPanel Spacing="4">
+                    <CheckBox x:Name="NewPngCompress" Content="PNG compression (Windows 7..10)" IsChecked="True"
+                              ToolTipService.ToolTip="Store ICO frames as PNG (smaller; needs Windows 7 or newer). Uncheck for uncompressed BMP frames." />
+                    <CheckBox x:Name="NewRetina2x" Content="@2x (macOS)"
+                              ToolTipService.ToolTip="Add the macOS @2x suffix to the suggested filename when exporting." />
+                    <CheckBox x:Name="NewDontAsk" Content="Don't ask again" />
+                </StackPanel>
             </StackPanel>
         </ContentDialog>
 

@@ -36,10 +36,12 @@ namespace IconMaster
             uint32_t height);
 
         // Assemble a multi-size ICO (16/32/48/256) from one full-resolution BGRA8 image.
+        // pngCompress: PNG-compressed frames (smaller, Win7+) vs uncompressed BMP frames.
         static winrt::Windows::Foundation::IAsyncAction SaveIcoAsync(
             winrt::Windows::Storage::StorageFile file,
             std::vector<uint8_t> bgra,
             uint32_t width,
-            uint32_t height);
+            uint32_t height,
+            bool pngCompress);
     };
 }

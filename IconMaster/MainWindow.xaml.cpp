@@ -1719,6 +1719,8 @@ namespace winrt::IconMaster::implementation
         context.Color(ColorPickerControl().Color());
         m_docCounter += 1;
         AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), FitZoom(std::max(w, h)));
+        doc().pngCompressIco = m_newPngCompress;
+        doc().retina2x = m_newRetina2x;
         StatusText().Text(L"New " + winrt::to_hstring(w) + L" x " + winrt::to_hstring(h) + L" icon.");
     }
 
@@ -1771,6 +1773,10 @@ namespace winrt::IconMaster::implementation
             default: Depth32().IsChecked(true); break;
             }
 
+            // Seed the remembered export flags.
+            NewPngCompress().IsChecked(m_newPngCompress);
+            NewRetina2x().IsChecked(m_newRetina2x);
+
             if (NewIconDialog().XamlRoot() == nullptr)
             {
                 NewIconDialog().XamlRoot(this->Content().XamlRoot());
@@ -1795,6 +1801,13 @@ namespace winrt::IconMaster::implementation
             else if (checked(Depth8()))  { m_newMode = 8; }
             else if (checked(Depth24())) { m_newMode = 24; }
             else                         { m_newMode = 32; }
+
+            auto isOn = [](winrt::Windows::Foundation::IReference<bool> const& v)
+            {
+                return v && v.Value();
+            };
+            m_newPngCompress = isOn(NewPngCompress().IsChecked());
+            m_newRetina2x = isOn(NewRetina2x().IsChecked());
 
             auto ask = NewDontAsk().IsChecked();
             if (ask && ask.Value())
@@ -2427,7 +2440,8 @@ namespace winrt::IconMaster::implementation
             winrt::check_hresult(initWithWindow->Initialize(hwnd));
         }
         picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
-        picker.SuggestedFileName(L"icon");
+        // The macOS @2x convention is a filename suffix; it doesn't apply to multi-size ICO.
+        picker.SuggestedFileName((doc().retina2x && extension != L".ico") ? L"icon@2x" : L"icon");
         picker.FileTypeChoices().Insert(typeName, winrt::single_threaded_vector<winrt::hstring>({ extension }));
 
         return picker.PickSaveFileAsync();
@@ -2473,7 +2487,7 @@ namespace winrt::IconMaster::implementation
             }
         }
         co_await ::IconMaster::ImageIO::SaveIcoAsync(file, std::move(bytes),
-            static_cast<uint32_t>(w), static_cast<uint32_t>(h));
+            static_cast<uint32_t>(w), static_cast<uint32_t>(h), doc().pngCompressIco);
     }
 
     // ---- History ------------------------------------------------------------

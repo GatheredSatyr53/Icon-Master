@@ -86,6 +86,56 @@ namespace
         }
         return out;
     }
+
+    // Encode one ICO frame as an uncompressed 32bpp BMP/DIB: a BITMAPINFOHEADER
+    // (double height for the XOR image + AND mask), the BGRA pixels bottom-up,
+    // then an all-zero AND mask (transparency comes from the alpha channel).
+    std::vector<uint8_t> EncodeBmpIcoFrame(std::vector<uint8_t> const& bgra, int32_t w, int32_t h)
+    {
+        const uint32_t xorSize = static_cast<uint32_t>(w) * static_cast<uint32_t>(h) * 4u;
+        const uint32_t andRow = ((static_cast<uint32_t>(w) + 31u) / 32u) * 4u; // 1bpp, 4-byte aligned
+        const uint32_t andSize = andRow * static_cast<uint32_t>(h);
+
+        std::vector<uint8_t> out;
+        out.reserve(40u + xorSize + andSize);
+
+        const auto putU16 = [&out](uint16_t x)
+        {
+            out.push_back(static_cast<uint8_t>(x & 0xFF));
+            out.push_back(static_cast<uint8_t>((x >> 8) & 0xFF));
+        };
+        const auto putU32 = [&out](uint32_t x)
+        {
+            out.push_back(static_cast<uint8_t>(x & 0xFF));
+            out.push_back(static_cast<uint8_t>((x >> 8) & 0xFF));
+            out.push_back(static_cast<uint8_t>((x >> 16) & 0xFF));
+            out.push_back(static_cast<uint8_t>((x >> 24) & 0xFF));
+        };
+
+        // BITMAPINFOHEADER
+        putU32(40);                                       // biSize
+        putU32(static_cast<uint32_t>(w));                 // biWidth
+        putU32(static_cast<uint32_t>(h) * 2u);            // biHeight (XOR + AND)
+        putU16(1);                                        // biPlanes
+        putU16(32);                                       // biBitCount
+        putU32(0);                                        // biCompression = BI_RGB
+        putU32(0);                                        // biSizeImage
+        putU32(0);                                        // biXPelsPerMeter
+        putU32(0);                                        // biYPelsPerMeter
+        putU32(0);                                        // biClrUsed
+        putU32(0);                                        // biClrImportant
+
+        // XOR bitmap: BGRA rows, bottom-up.
+        for (int32_t y = h - 1; y >= 0; --y)
+        {
+            const size_t row = static_cast<size_t>(y) * static_cast<size_t>(w) * 4u;
+            out.insert(out.end(), bgra.begin() + row, bgra.begin() + row + static_cast<size_t>(w) * 4u);
+        }
+
+        // AND mask: all opaque (zero), bottom-up, row-padded.
+        out.insert(out.end(), andSize, 0);
+        return out;
+    }
 }
 
 namespace IconMaster
@@ -148,14 +198,21 @@ namespace IconMaster
 
     winrt::Windows::Foundation::IAsyncAction ImageIO::SaveIcoAsync(
         winrt::Windows::Storage::StorageFile file,
-        std::vector<uint8_t> bgra, uint32_t width, uint32_t height)
+        std::vector<uint8_t> bgra, uint32_t width, uint32_t height, bool pngCompress)
     {
-        // Render each icon size to a PNG blob (ICO may embed PNG-compressed images).
+        // Each icon size becomes one frame blob: PNG-compressed (smaller, Win7+) or
+        // an uncompressed 32bpp BMP/DIB (broadest compatibility).
         constexpr std::array<int32_t, 4> sizes{ 16, 32, 48, 256 };
-        std::vector<std::vector<uint8_t>> pngs;
+        std::vector<std::vector<uint8_t>> frames;
         for (int32_t s : sizes)
         {
             const std::vector<uint8_t> bytes = ScaleBgra(bgra, width, height, s);
+
+            if (!pngCompress)
+            {
+                frames.push_back(EncodeBmpIcoFrame(bytes, s, s));
+                continue;
+            }
 
             WSS::InMemoryRandomAccessStream mem;
             auto encoder = co_await WGI::BitmapEncoder::CreateAsync(WGI::BitmapEncoder::PngEncoderId(), mem);
@@ -171,7 +228,7 @@ namespace IconMaster
             co_await reader.LoadAsync(len);
             std::vector<uint8_t> png(len);
             reader.ReadBytes(png);
-            pngs.push_back(std::move(png));
+            frames.push_back(std::move(png));
         }
 
         const auto putU16 = [](std::vector<uint8_t>& v, uint16_t x)
@@ -197,7 +254,7 @@ namespace IconMaster
 
         // ICONDIRENTRY[] — image data starts after the header + all entries.
         uint32_t offset = 6u + 16u * count;
-        for (size_t k = 0; k < pngs.size(); ++k)
+        for (size_t k = 0; k < frames.size(); ++k)
         {
             const int32_t s = sizes[k];
             ico.push_back(static_cast<uint8_t>(s >= 256 ? 0 : s)); // width (0 => 256)
@@ -206,14 +263,14 @@ namespace IconMaster
             ico.push_back(0);  // reserved
             putU16(ico, 1);    // colour planes
             putU16(ico, 32);   // bits per pixel
-            putU32(ico, static_cast<uint32_t>(pngs[k].size()));
+            putU32(ico, static_cast<uint32_t>(frames[k].size()));
             putU32(ico, offset);
-            offset += static_cast<uint32_t>(pngs[k].size());
+            offset += static_cast<uint32_t>(frames[k].size());
         }
 
-        for (auto const& png : pngs)
+        for (auto const& frame : frames)
         {
-            ico.insert(ico.end(), png.begin(), png.end());
+            ico.insert(ico.end(), frame.begin(), frame.end());
         }
 
         co_await winrt::Windows::Storage::FileIO::WriteBytesAsync(file, ico);
