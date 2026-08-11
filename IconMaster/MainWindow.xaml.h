@@ -33,6 +33,9 @@ namespace winrt::IconMaster::implementation
         winrt::fire_and_forget OnPaletteLoad(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnPaletteSwatchTapped(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::TappedRoutedEventArgs const& args);
         void OnPaletteSwatchRightTapped(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::RightTappedRoutedEventArgs const& args);
+        void OnIndexSwatchRightTapped(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::Input::RightTappedRoutedEventArgs const& args); // assign the current colour to a palette slot
+        void RebuildIndexPaletteUI();                                                     // sync the indexed-palette panel with the active document
+        int32_t IndexSwatchSlot(winrt::Windows::Foundation::IInspectable const& source);  // which palette slot a swatch element maps to
         void OnPaletteElementPrepared(winrt::Microsoft::UI::Xaml::Controls::ItemsRepeater const& sender, winrt::Microsoft::UI::Xaml::Controls::ItemsRepeaterElementPreparedEventArgs const& args);
         void OnZoomIn(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnZoomOut(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -141,6 +144,7 @@ namespace winrt::IconMaster::implementation
             int32_t h = 1;
             size_t active = 0;
             std::vector<LayerSnapshot> layers;
+            std::vector<winrt::Windows::UI::Color> palette; // indexed-mode palette (empty for 24/32)
         };
 
         // Per-document state (one per open tab). The current tool, colour, clipboard,
@@ -329,6 +333,9 @@ namespace winrt::IconMaster::implementation
             winrt::single_threaded_observable_vector<winrt::Windows::Foundation::IInspectable>() };
         // Fixed preset swatches, shown with the same repeater/style as the custom palette.
         winrt::Windows::Foundation::Collections::IObservableVector<winrt::Windows::Foundation::IInspectable> m_standardItems{
+            winrt::single_threaded_observable_vector<winrt::Windows::Foundation::IInspectable>() };
+        // The active document's indexed palette (reduced modes); mirrors doc().context's palette.
+        winrt::Windows::Foundation::Collections::IObservableVector<winrt::Windows::Foundation::IInspectable> m_indexItems{
             winrt::single_threaded_observable_vector<winrt::Windows::Foundation::IInspectable>() };
         static constexpr size_t k_maxPalette = 96;         // hard cap on stored swatches
 public:

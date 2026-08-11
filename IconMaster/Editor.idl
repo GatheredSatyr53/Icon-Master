@@ -9,10 +9,17 @@ namespace IconMaster
         Int32 PixelHeight{ get; };
 
         // Colour depth the surface quantizes to on SetPixel: 32 (RGBA, default),
-        // 24 (RGB + 1-bit alpha), 8 (RGB332), 4 (16-colour palette), 1 (mono).
+        // 24 (RGB + 1-bit alpha), 8/4/1 (indexed via an editable palette).
         Int32 ColorMode;
 
         Windows.UI.Color Color;
+
+        // Indexed-palette access for the reduced modes (8/4/1). PaletteSize is 0 for
+        // the direct-colour modes (24/32). Each pixel keeps an index into the palette,
+        // so editing an entry recolours every pixel that uses it.
+        Int32 PaletteSize{ get; };
+        Windows.UI.Color PaletteColor(Int32 index);
+        void SetPaletteEntry(Int32 index, Windows.UI.Color value);
 
         Windows.UI.Color GetPixel(Int32 x, Int32 y);
         void SetPixel(Int32 x, Int32 y, Windows.UI.Color color);

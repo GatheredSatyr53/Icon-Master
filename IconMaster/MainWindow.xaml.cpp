@@ -166,6 +166,8 @@ namespace winrt::IconMaster::implementation
         PaletteRepeater().ItemsSource(m_paletteItems);
         RebuildPaletteUI();
 
+        IndexPaletteRepeater().ItemsSource(m_indexItems);
+
         RebuildDisplay();
         LayerListView().ItemsSource(m_layerItems);
         RebuildLayersUI();
@@ -374,6 +376,55 @@ namespace winrt::IconMaster::implementation
         }
         RebuildPaletteUI();
         SavePalette();
+    }
+
+    void MainWindow::RebuildIndexPaletteUI()
+    {
+        const bool indexed = (doc().context != nullptr) && doc().context.PaletteSize() > 0;
+        IndexPalettePanel().Visibility(indexed
+            ? winrt::Microsoft::UI::Xaml::Visibility::Visible
+            : winrt::Microsoft::UI::Xaml::Visibility::Collapsed);
+
+        m_indexItems.Clear();
+        if (!indexed) { return; }
+
+        const int32_t n = doc().context.PaletteSize();
+        for (int32_t k = 0; k < n; ++k)
+        {
+            m_indexItems.Append(winrt::box_value(winrt::hstring{ ColorToHex(doc().context.PaletteColor(k)) }));
+        }
+    }
+
+    int32_t MainWindow::IndexSwatchSlot(IInspectable const& source)
+    {
+        // Walk up from whatever was tapped to the swatch that the repeater realized.
+        auto element = source.try_as<winrt::Microsoft::UI::Xaml::FrameworkElement>();
+        while (element)
+        {
+            const int32_t idx = IndexPaletteRepeater().GetElementIndex(element);
+            if (idx >= 0) { return idx; }
+            element = winrt::Microsoft::UI::Xaml::Media::VisualTreeHelper::GetParent(element)
+                          .try_as<winrt::Microsoft::UI::Xaml::FrameworkElement>();
+        }
+        return -1;
+    }
+
+    void MainWindow::OnIndexSwatchRightTapped(IInspectable const&, winrt::Microsoft::UI::Xaml::Input::RightTappedRoutedEventArgs const& args)
+    {
+        if (doc().context == nullptr || doc().context.PaletteSize() == 0) { return; }
+        const int32_t slot = IndexSwatchSlot(args.OriginalSource());
+        if (slot < 0) { return; }
+
+        // Reassign the slot to the current colour; every layer shares the palette,
+        // and each recolours its own pixels that use this index.
+        PushUndo();
+        const auto color = ColorPickerControl().Color();
+        for (auto& layer : doc().layers)
+        {
+            layer.context.SetPaletteEntry(slot, color);
+        }
+        RebuildIndexPaletteUI();
+        RebuildDisplay();
     }
 
     void MainWindow::OnPaletteAdd(IInspectable const&, RoutedEventArgs const&)
@@ -2617,6 +2668,14 @@ namespace winrt::IconMaster::implementation
             }
             s.layers.push_back(std::move(ls));
         }
+
+        // The indexed palette is shared across the document's layers.
+        const int32_t psize = doc().context.PaletteSize();
+        s.palette.reserve(static_cast<size_t>(psize));
+        for (int32_t k = 0; k < psize; ++k)
+        {
+            s.palette.push_back(doc().context.PaletteColor(k));
+        }
         return s;
     }
 
@@ -2635,6 +2694,11 @@ namespace winrt::IconMaster::implementation
         {
             Layer layer;
             layer.context = MakeContext(snap.w, snap.h);
+            // Restore the snapshot's palette before drawing so pixels re-index to it.
+            for (int32_t k = 0; k < static_cast<int32_t>(snap.palette.size()); ++k)
+            {
+                layer.context.SetPaletteEntry(k, snap.palette[k]);
+            }
             layer.context.Color(color);
             layer.name = ls.name;
             layer.visible = ls.visible;
@@ -2785,6 +2849,7 @@ namespace winrt::IconMaster::implementation
 
         ZoomText().Text(winrt::to_hstring(doc().zoom * 100) + L"%");
         UpdateDepthIndicator();
+        RebuildIndexPaletteUI();
     }
 
     uint8_t* MainWindow::DisplayData()
