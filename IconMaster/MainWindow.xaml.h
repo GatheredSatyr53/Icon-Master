@@ -171,6 +171,7 @@ namespace winrt::IconMaster::implementation
             size_t activeLayer{ 0 };
             int32_t layerCounter{ 0 }; // for default layer names
             int32_t colorMode{ 32 };   // colour depth applied to every layer (32/24/8/4/1)
+            int32_t lastIndexedMode{ 8 }; // indexed depth to restore when toggling RGB -> Indexed
             int32_t zoom{ 16 };
             bool hasSelection{ false };
             int32_t selX{ 0 };

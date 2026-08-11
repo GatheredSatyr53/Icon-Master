@@ -1738,6 +1738,7 @@ namespace winrt::IconMaster::implementation
         d.layerCounter = 1;
         d.context = context;
         d.colorMode = context.ColorMode();
+        d.lastIndexedMode = (d.colorMode == 1 || d.colorMode == 4 || d.colorMode == 8) ? d.colorMode : 8;
         d.zoom = std::clamp(zoom, k_minZoom, k_maxZoom);
         d.title = title;
         m_docs.push_back(std::move(d));
@@ -2261,6 +2262,12 @@ namespace winrt::IconMaster::implementation
         // Converting to an indexed mode snaps every layer's pixels to the palette,
         // so make it undoable.
         PushUndo();
+        // Remember the indexed depth so a later RGB -> Indexed toggle restores it
+        // (e.g. a 4-bit image round-trips back to 4-bit, not 8-bit).
+        if (doc().colorMode == 1 || doc().colorMode == 4 || doc().colorMode == 8)
+        {
+            doc().lastIndexedMode = doc().colorMode;
+        }
         doc().colorMode = mode;
         for (auto& layer : doc().layers)
         {
@@ -2288,7 +2295,7 @@ namespace winrt::IconMaster::implementation
             UpdateModeMenu();
             return;
         }
-        SetDocumentMode(8);
+        SetDocumentMode(doc().lastIndexedMode);
     }
 
     winrt::fire_and_forget MainWindow::OnResizeImage(winrt::Windows::Foundation::IInspectable const&, winrt::Microsoft::UI::Xaml::RoutedEventArgs const&)
