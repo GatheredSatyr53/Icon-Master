@@ -165,6 +165,11 @@
             </MenuBarItem>
 
             <MenuBarItem Title="Image">
+                <MenuFlyoutSubItem Text="Mode">
+                    <RadioMenuFlyoutItem x:Name="ModeRgbItem" Text="RGB" GroupName="imgmode" Click="OnModeRgb" />
+                    <RadioMenuFlyoutItem x:Name="ModeIndexedItem" Text="Indexed" GroupName="imgmode" Click="OnModeIndexed" />
+                </MenuFlyoutSubItem>
+                <MenuFlyoutSeparator/>
                 <MenuFlyoutItem Text="Resize Image..." Click="OnResizeImage">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="R"/>
@@ -429,7 +434,35 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Grid Grid.Row="0" RowSpacing="4">
+                    <StackPanel Grid.Row="0" Spacing="8">
+                    <!-- Indexed palette (reduced-depth documents only): tap to pick a
+                     colour, right-tap a slot to reassign it and recolour its pixels. -->
+                    <StackPanel x:Name="IndexPalettePanel" Spacing="4" Visibility="Collapsed">
+                        <TextBlock Text="Indexed palette" Style="{StaticResource WorkspacePanelSectionHeaderStyle}" />
+                        <ScrollViewer MaxWidth="320" MaxHeight="180" HorizontalAlignment="Left"
+                                  Padding="1,0,0,0" Style="{StaticResource ToolbarScrollPanelStyle}">
+                            <ItemsRepeater x:Name="IndexPaletteRepeater"
+                                       ElementPrepared="OnPaletteElementPrepared"
+                                       Tapped="OnPaletteSwatchTapped"
+                                       RightTapped="OnIndexSwatchRightTapped">
+                                <ItemsRepeater.Layout>
+                                    <local:WrapLayout HorizontalSpacing="6" VerticalSpacing="6"
+                                                  Orientation="Horizontal" />
+                                </ItemsRepeater.Layout>
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="20" Height="20" />
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                        </ScrollViewer>
+                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               Text="Right-tap a slot to set it to the current colour." />
+                    </StackPanel>
+
+                    <Grid x:Name="StandardPalettePanel" RowSpacing="4">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -457,6 +490,7 @@
                             </ItemsRepeater>
                         </ScrollViewer>
                     </Grid>
+                    </StackPanel>
 
                     <Border Grid.Row="1" Style="{StaticResource HorizontalDividerStyle}" />
 
