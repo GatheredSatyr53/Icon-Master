@@ -646,7 +646,13 @@
                         <RadioButton x:Name="Depth32" Content="True Color + Alpha (32-bit)" GroupName="newdepth" Tag="32" IsChecked="True" />
                     </StackPanel>
                 </StackPanel>
-                <CheckBox x:Name="NewDontAsk" Content="Don't ask again" />
+                <StackPanel Spacing="4">
+                    <CheckBox x:Name="NewPngCompress" Content="PNG compression (Windows 7..10)" IsChecked="True"
+                              ToolTipService.ToolTip="Store ICO frames as PNG (smaller; needs Windows 7 or newer). Uncheck for uncompressed BMP frames." />
+                    <CheckBox x:Name="NewRetina2x" Content="@2x (macOS)"
+                              ToolTipService.ToolTip="When exporting an image, also write a double-resolution companion (name@2x) beside it. Not applied to ICO." />
+                    <CheckBox x:Name="NewDontAsk" Content="Don't ask again" />
+                </StackPanel>
             </StackPanel>
         </ContentDialog>
 
@@ -664,6 +670,11 @@
                     <ComboBoxItem Content="GIF image (*.gif)" />
                     <ComboBoxItem Content="TIFF image (*.tiff)" />
                     <ComboBoxItem Content="Windows icon (*.ico)" />
+                    <ComboBoxItem Content="Windows cursor (*.cur)" />
+                    <ComboBoxItem Content="Mac OS icon (*.icns)" />
+                    <ComboBoxItem Content="X PixMap (*.xpm)" />
+                    <ComboBoxItem Content="X Bitmap (*.xbm)" />
+                    <ComboBoxItem Content="WAP bitmap (*.wbmp)" />
                 </ComboBox>
             </StackPanel>
         </ContentDialog>

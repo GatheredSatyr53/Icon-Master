@@ -1719,6 +1719,8 @@ namespace winrt::IconMaster::implementation
         context.Color(ColorPickerControl().Color());
         m_docCounter += 1;
         AddDocument(context, L"Icon " + winrt::to_hstring(m_docCounter), FitZoom(std::max(w, h)));
+        doc().pngCompressIco = m_newPngCompress;
+        doc().retina2x = m_newRetina2x;
         StatusText().Text(L"New " + winrt::to_hstring(w) + L" x " + winrt::to_hstring(h) + L" icon.");
     }
 
@@ -1771,6 +1773,10 @@ namespace winrt::IconMaster::implementation
             default: Depth32().IsChecked(true); break;
             }
 
+            // Seed the remembered export flags.
+            NewPngCompress().IsChecked(m_newPngCompress);
+            NewRetina2x().IsChecked(m_newRetina2x);
+
             if (NewIconDialog().XamlRoot() == nullptr)
             {
                 NewIconDialog().XamlRoot(this->Content().XamlRoot());
@@ -1795,6 +1801,13 @@ namespace winrt::IconMaster::implementation
             else if (checked(Depth8()))  { m_newMode = 8; }
             else if (checked(Depth24())) { m_newMode = 24; }
             else                         { m_newMode = 32; }
+
+            auto isOn = [](winrt::Windows::Foundation::IReference<bool> const& v)
+            {
+                return v && v.Value();
+            };
+            m_newPngCompress = isOn(NewPngCompress().IsChecked());
+            m_newRetina2x = isOn(NewRetina2x().IsChecked());
 
             auto ask = NewDontAsk().IsChecked();
             if (ask && ask.Value())
@@ -2122,15 +2135,20 @@ namespace winrt::IconMaster::implementation
         winrt::hstring typeName;
         winrt::hstring ext;
         winrt::guid encoderId{};
-        bool isIco = false;
+        SaveKind kind = SaveKind::WicImage;
         switch (SaveFormatCombo().SelectedIndex())
         {
-        case 1:  typeName = L"BMP image";    ext = L".bmp";  encoderId = WGI::BitmapEncoder::BmpEncoderId();  break;
-        case 2:  typeName = L"JPEG image";   ext = L".jpg";  encoderId = WGI::BitmapEncoder::JpegEncoderId(); break;
-        case 3:  typeName = L"GIF image";    ext = L".gif";  encoderId = WGI::BitmapEncoder::GifEncoderId();  break;
-        case 4:  typeName = L"TIFF image";   ext = L".tiff"; encoderId = WGI::BitmapEncoder::TiffEncoderId(); break;
-        case 5:  typeName = L"Windows icon"; ext = L".ico";  isIco = true;                                    break;
-        default: typeName = L"PNG image";    ext = L".png";  encoderId = WGI::BitmapEncoder::PngEncoderId();  break;
+        case 1:  typeName = L"BMP image";      ext = L".bmp";  encoderId = WGI::BitmapEncoder::BmpEncoderId();  break;
+        case 2:  typeName = L"JPEG image";     ext = L".jpg";  encoderId = WGI::BitmapEncoder::JpegEncoderId(); break;
+        case 3:  typeName = L"GIF image";      ext = L".gif";  encoderId = WGI::BitmapEncoder::GifEncoderId();  break;
+        case 4:  typeName = L"TIFF image";     ext = L".tiff"; encoderId = WGI::BitmapEncoder::TiffEncoderId(); break;
+        case 5:  typeName = L"Windows icon";   ext = L".ico";  kind = SaveKind::Ico;                            break;
+        case 6:  typeName = L"Windows cursor"; ext = L".cur";  kind = SaveKind::Cur;                            break;
+        case 7:  typeName = L"Mac OS icon";    ext = L".icns"; kind = SaveKind::Icns;                           break;
+        case 8:  typeName = L"X PixMap";       ext = L".xpm";  kind = SaveKind::Xpm;                            break;
+        case 9:  typeName = L"X Bitmap";       ext = L".xbm";  kind = SaveKind::Xbm;                            break;
+        case 10: typeName = L"WAP bitmap";     ext = L".wbmp"; kind = SaveKind::Wbmp;                           break;
+        default: typeName = L"PNG image";      ext = L".png";  encoderId = WGI::BitmapEncoder::PngEncoderId();  break;
         }
 
         auto file = co_await PickSaveFileAsync(typeName, ext);
@@ -2139,21 +2157,14 @@ namespace winrt::IconMaster::implementation
             co_return;
         }
 
-        if (isIco)
-        {
-            co_await WriteIcoAsync(file);
-        }
-        else
-        {
-            co_await WriteSingleLayerImageAsync(file, encoderId);
-        }
+        co_await WriteByKindAsync(file, kind, encoderId);
 
         winrt::hstring filePath = file.Path();
         doc().associatedFile.path = filePath;
         doc().associatedFile.typeName = filePath;
         doc().associatedFile.extension = ext;
         doc().associatedFile.encoder = encoderId;
-        doc().associatedFile.isIco = isIco;
+        doc().associatedFile.kind = kind;
         Tabs().TabItems().GetAt(static_cast<uint32_t>(m_active)).as<TabViewItem>().Header(winrt::box_value(file.Name()));
         StatusText().Text(L"Saved " + filePath);
         AddToRecent(file);
@@ -2172,14 +2183,7 @@ namespace winrt::IconMaster::implementation
                 co_return;
             }
 
-            if (assoc.isIco)
-            {
-                co_await WriteIcoAsync(file);
-            }
-            else
-            {
-                co_await WriteSingleLayerImageAsync(file, assoc.encoder);
-            }
+            co_await WriteByKindAsync(file, assoc.kind, assoc.encoder);
             StatusText().Text(L"Saved copy " + file.Path());
         }
     }
@@ -2398,21 +2402,38 @@ namespace winrt::IconMaster::implementation
 
     winrt::fire_and_forget MainWindow::OnSave(IInspectable const& sender, RoutedEventArgs const& args)
     {
+        auto lifetime = get_strong();
+
         winrt::hstring filePath = doc().associatedFile.path;
         if (filePath.empty()) {
             OnSaveAs(sender, args);
+            co_return;
         }
-        else {
-            auto file = co_await winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(filePath);
-            if (doc().associatedFile.isIco)
-            {
-                co_await WriteIcoAsync(file);
-            }
-            else
-            {
-                co_await WriteSingleLayerImageAsync(file, doc().associatedFile.encoder);
-            }
+
+        // The associated file can be gone (deleted, moved, renamed, or on an
+        // unplugged drive) since it was opened; GetFileFromPathAsync then throws.
+        // Fall back to Save As so the app prompts for a new location instead of
+        // crashing out of this fire_and_forget coroutine.
+        winrt::Windows::Storage::StorageFile file{ nullptr };
+        try
+        {
+            file = co_await winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(filePath);
+        }
+        catch (winrt::hresult_error const&)
+        {
+            StatusText().Text(L"\"" + filePath + L"\" is no longer available - choose a new location.");
+            OnSaveAs(sender, args);
+            co_return;
+        }
+
+        try
+        {
+            co_await WriteByKindAsync(file, doc().associatedFile.kind, doc().associatedFile.encoder);
             StatusText().Text(L"Saved " + filePath);
+        }
+        catch (winrt::hresult_error const& e)
+        {
+            StatusText().Text(L"Could not save \"" + filePath + L"\": " + e.message());
         }
     }
 
@@ -2427,16 +2448,14 @@ namespace winrt::IconMaster::implementation
             winrt::check_hresult(initWithWindow->Initialize(hwnd));
         }
         picker.SuggestedStartLocation(winrt::Windows::Storage::Pickers::PickerLocationId::PicturesLibrary);
-        picker.SuggestedFileName(L"icon");
+        picker.SuggestedFileName(L"icon"); // the @2x companion (if any) is derived from this at write time
         picker.FileTypeChoices().Insert(typeName, winrt::single_threaded_vector<winrt::hstring>({ extension }));
 
         return picker.PickSaveFileAsync();
     }
 
-    winrt::Windows::Foundation::IAsyncAction MainWindow::WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
+    std::vector<uint8_t> MainWindow::CompositeToBytes(int32_t w, int32_t h) const
     {
-        const int32_t w = doc().context.PixelWidth();
-        const int32_t h = doc().context.PixelHeight();
         std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
         for (int32_t y = 0; y < h; ++y)
         {
@@ -2450,8 +2469,65 @@ namespace winrt::IconMaster::implementation
                 bytes[i + 3] = c.A;
             }
         }
-        co_await ::IconMaster::ImageIO::SaveImageAsync(file, encoderId, std::move(bytes),
+        return bytes;
+    }
+
+    winrt::Windows::Foundation::IAsyncAction MainWindow::WriteSingleLayerImageAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
+    {
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        co_await ::IconMaster::ImageIO::SaveImageAsync(file, encoderId, CompositeToBytes(w, h),
             static_cast<uint32_t>(w), static_cast<uint32_t>(h));
+
+        // With @2x on, also write a double-resolution companion next to the file.
+        if (doc().retina2x)
+        {
+            co_await WriteRetinaSiblingAsync(file, encoderId);
+        }
+    }
+
+    winrt::Windows::Foundation::IAsyncAction MainWindow::WriteRetinaSiblingAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId)
+    {
+        // The save picker grants access to the chosen file; the containing folder is
+        // needed to drop the companion beside it. If it isn't available, keep the 1x.
+        auto parent = co_await file.GetParentAsync();
+        if (parent == nullptr)
+        {
+            StatusText().Text(L"Saved 1x only — no folder access for the @2x file.");
+            co_return;
+        }
+
+        // Insert "@2x" before the extension: icon.png -> icon@2x.png.
+        const std::wstring name{ file.Name() };
+        const std::wstring ext{ file.FileType() };
+        const std::wstring stem = (name.size() >= ext.size()) ? name.substr(0, name.size() - ext.size()) : name;
+        const winrt::hstring siblingName{ stem + L"@2x" + ext };
+
+        auto sibling = co_await parent.CreateFileAsync(
+            siblingName, winrt::Windows::Storage::CreationCollisionOption::ReplaceExisting);
+
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        const auto src = CompositeToBytes(w, h);
+
+        // Nearest-neighbour 2x upscale (crisp pixels for pixel art).
+        const int32_t w2 = w * 2;
+        const int32_t h2 = h * 2;
+        std::vector<uint8_t> dst(static_cast<size_t>(w2) * h2 * 4);
+        for (int32_t y = 0; y < h2; ++y)
+        {
+            for (int32_t x = 0; x < w2; ++x)
+            {
+                const size_t si = (static_cast<size_t>(y / 2) * w + (x / 2)) * 4;
+                const size_t di = (static_cast<size_t>(y) * w2 + x) * 4;
+                dst[di + 0] = src[si + 0];
+                dst[di + 1] = src[si + 1];
+                dst[di + 2] = src[si + 2];
+                dst[di + 3] = src[si + 3];
+            }
+        }
+        co_await ::IconMaster::ImageIO::SaveImageAsync(sibling, encoderId, std::move(dst),
+            static_cast<uint32_t>(w2), static_cast<uint32_t>(h2));
     }
 
     winrt::Windows::Foundation::IAsyncAction MainWindow::WriteIcoAsync(winrt::Windows::Storage::StorageFile file)
@@ -2459,21 +2535,59 @@ namespace winrt::IconMaster::implementation
         // Flatten the canvas once; ImageIO scales it to the icon sizes and builds the ICO.
         const int32_t w = doc().context.PixelWidth();
         const int32_t h = doc().context.PixelHeight();
-        std::vector<uint8_t> bytes(static_cast<size_t>(w) * h * 4);
-        for (int32_t y = 0; y < h; ++y)
+        co_await ::IconMaster::ImageIO::SaveIcoAsync(file, CompositeToBytes(w, h),
+            static_cast<uint32_t>(w), static_cast<uint32_t>(h), doc().pngCompressIco);
+    }
+
+    winrt::Windows::Foundation::IAsyncAction MainWindow::WriteByKindAsync(winrt::Windows::Storage::StorageFile file, SaveKind kind, winrt::guid encoderId)
+    {
+        const int32_t w = doc().context.PixelWidth();
+        const int32_t h = doc().context.PixelHeight();
+        const uint32_t uw = static_cast<uint32_t>(w);
+        const uint32_t uh = static_cast<uint32_t>(h);
+
+        switch (kind)
         {
-            for (int32_t x = 0; x < w; ++x)
-            {
-                const auto c = CompositePixel(x, y);
-                const size_t i = (static_cast<size_t>(y) * w + x) * 4;
-                bytes[i + 0] = c.B;
-                bytes[i + 1] = c.G;
-                bytes[i + 2] = c.R;
-                bytes[i + 3] = c.A;
-            }
+        case SaveKind::Ico:
+            co_await WriteIcoAsync(file);
+            break;
+        case SaveKind::Cur:
+            co_await ::IconMaster::ImageIO::SaveCurAsync(file, CompositeToBytes(w, h), uw, uh, 0, 0);
+            break;
+        case SaveKind::Icns:
+            co_await ::IconMaster::ImageIO::SaveIcnsAsync(file, CompositeToBytes(w, h), uw, uh);
+            break;
+        case SaveKind::Xpm:
+            co_await ::IconMaster::ImageIO::SaveXpmAsync(file, CompositeToBytes(w, h), uw, uh, FileStemIdentifier(file.Name()));
+            break;
+        case SaveKind::Xbm:
+            co_await ::IconMaster::ImageIO::SaveXbmAsync(file, CompositeToBytes(w, h), uw, uh, FileStemIdentifier(file.Name()));
+            break;
+        case SaveKind::Wbmp:
+            co_await ::IconMaster::ImageIO::SaveWbmpAsync(file, CompositeToBytes(w, h), uw, uh);
+            break;
+        default:
+            co_await WriteSingleLayerImageAsync(file, encoderId);
+            break;
         }
-        co_await ::IconMaster::ImageIO::SaveIcoAsync(file, std::move(bytes),
-            static_cast<uint32_t>(w), static_cast<uint32_t>(h));
+    }
+
+    winrt::hstring MainWindow::FileStemIdentifier(winrt::hstring const& fileName)
+    {
+        // Strip the extension and reduce to a valid C identifier for XPM/XBM arrays.
+        std::wstring n{ fileName };
+        const size_t dot = n.find_last_of(L'.');
+        if (dot != std::wstring::npos) { n = n.substr(0, dot); }
+
+        const auto isIdent = [](wchar_t c)
+        {
+            return (c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z') || (c >= L'0' && c <= L'9') || c == L'_';
+        };
+
+        std::wstring id;
+        for (wchar_t c : n) { id += isIdent(c) ? c : L'_'; }
+        if (id.empty() || (id.front() >= L'0' && id.front() <= L'9')) { id = L"_" + id; }
+        return winrt::hstring{ id };
     }
 
     // ---- History ------------------------------------------------------------
