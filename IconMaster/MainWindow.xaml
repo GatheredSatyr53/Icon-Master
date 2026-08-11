@@ -165,6 +165,11 @@
             </MenuBarItem>
 
             <MenuBarItem Title="Image">
+                <MenuFlyoutSubItem Text="Mode">
+                    <RadioMenuFlyoutItem x:Name="ModeRgbItem" Text="RGB" GroupName="imgmode" Click="OnModeRgb" />
+                    <RadioMenuFlyoutItem x:Name="ModeIndexedItem" Text="Indexed" GroupName="imgmode" Click="OnModeIndexed" />
+                </MenuFlyoutSubItem>
+                <MenuFlyoutSeparator/>
                 <MenuFlyoutItem Text="Resize Image..." Click="OnResizeImage">
                     <MenuFlyoutItem.KeyboardAccelerators>
                         <KeyboardAccelerator Modifiers="Control" Key="R"/>
@@ -455,10 +460,9 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap"
                                Text="Right-tap a slot to set it to the current colour." />
-                        <Border Style="{StaticResource HorizontalDividerStyle}" />
                     </StackPanel>
 
-                    <Grid RowSpacing="4">
+                    <Grid x:Name="StandardPalettePanel" RowSpacing="4">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>

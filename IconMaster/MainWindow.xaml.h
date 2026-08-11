@@ -74,6 +74,10 @@ namespace winrt::IconMaster::implementation
         winrt::fire_and_forget OnSave(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnSaveAs(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         winrt::fire_and_forget OnSaveCopy(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+        void OnModeRgb(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);     // Image > Mode > RGB
+        void OnModeIndexed(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args); // Image > Mode > Indexed
+        void SetDocumentMode(int32_t mode);  // convert the active document to a colour depth, reindexing its layers
+        void UpdateModeMenu();               // reflect the active document's mode in the Image > Mode radios
         winrt::fire_and_forget OnResizeImage(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnFlipHorizontal(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
         void OnFlipVertical(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
@@ -143,6 +147,7 @@ namespace winrt::IconMaster::implementation
             int32_t w = 1;
             int32_t h = 1;
             size_t active = 0;
+            int32_t colorMode = 32;                          // document colour depth at capture
             std::vector<LayerSnapshot> layers;
             std::vector<winrt::Windows::UI::Color> palette; // indexed-mode palette (empty for 24/32)
         };

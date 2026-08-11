@@ -384,6 +384,11 @@ namespace winrt::IconMaster::implementation
         IndexPalettePanel().Visibility(indexed
             ? winrt::Microsoft::UI::Xaml::Visibility::Visible
             : winrt::Microsoft::UI::Xaml::Visibility::Collapsed);
+        // The standard preset palette is redundant in indexed mode: the document's
+        // own palette takes its place.
+        StandardPalettePanel().Visibility(indexed
+            ? winrt::Microsoft::UI::Xaml::Visibility::Collapsed
+            : winrt::Microsoft::UI::Xaml::Visibility::Visible);
 
         m_indexItems.Clear();
         if (!indexed) { return; }
@@ -2239,6 +2244,53 @@ namespace winrt::IconMaster::implementation
         }
     }
 
+    void MainWindow::UpdateModeMenu()
+    {
+        // RGB covers the direct-colour depths (24/32); Indexed covers 8/4/1-bit.
+        const bool rgb = (doc().context == nullptr) || doc().colorMode >= 24;
+        ModeRgbItem().IsChecked(rgb);
+        ModeIndexedItem().IsChecked(!rgb);
+    }
+
+    void MainWindow::SetDocumentMode(int32_t mode)
+    {
+        if (doc().context == nullptr || doc().colorMode == mode)
+        {
+            return;
+        }
+        // Converting to an indexed mode snaps every layer's pixels to the palette,
+        // so make it undoable.
+        PushUndo();
+        doc().colorMode = mode;
+        for (auto& layer : doc().layers)
+        {
+            layer.context.ColorMode(mode);
+        }
+        RebuildDisplay(); // refreshes the badge, palettes, and canvas
+    }
+
+    void MainWindow::OnModeRgb(IInspectable const&, RoutedEventArgs const&)
+    {
+        // Already a direct-colour document: keep its exact depth (24 or 32).
+        if (doc().context == nullptr || doc().colorMode >= 24)
+        {
+            UpdateModeMenu();
+            return;
+        }
+        SetDocumentMode(32);
+    }
+
+    void MainWindow::OnModeIndexed(IInspectable const&, RoutedEventArgs const&)
+    {
+        // Already indexed: keep its palette size (8/4/1-bit).
+        if (doc().context == nullptr || doc().colorMode < 24)
+        {
+            UpdateModeMenu();
+            return;
+        }
+        SetDocumentMode(8);
+    }
+
     winrt::fire_and_forget MainWindow::OnResizeImage(winrt::Windows::Foundation::IInspectable const&, winrt::Microsoft::UI::Xaml::RoutedEventArgs const&)
     {
         auto lifetime = get_strong();
@@ -2651,6 +2703,7 @@ namespace winrt::IconMaster::implementation
         s.w = w;
         s.h = h;
         s.active = doc().activeLayer;
+        s.colorMode = doc().colorMode;
         s.layers.reserve(doc().layers.size());
         for (auto const& layer : doc().layers)
         {
@@ -2688,6 +2741,10 @@ namespace winrt::IconMaster::implementation
             doc().zoom = FitZoom(std::max(snap.w, snap.h));
         }
 
+        // Restore the colour depth before rebuilding, so MakeContext reindexes each
+        // layer to the snapshot's mode (a mode switch is itself undoable).
+        doc().colorMode = snap.colorMode;
+
         // Rebuild the entire layer stack from the snapshot.
         doc().layers.clear();
         for (auto const& ls : snap.layers)
@@ -2722,6 +2779,12 @@ namespace winrt::IconMaster::implementation
         m_shapeActive = false;
         m_floatPixels.clear();
         RebuildLayersUI();
+
+        // Mode-dependent chrome (these don't rebuild the bitmap, so callers that
+        // only Render() still get a correct badge, palette panel, and Mode menu).
+        UpdateDepthIndicator();
+        RebuildIndexPaletteUI();
+        UpdateModeMenu();
     }
 
     void MainWindow::PushUndo()
@@ -2850,6 +2913,7 @@ namespace winrt::IconMaster::implementation
         ZoomText().Text(winrt::to_hstring(doc().zoom * 100) + L"%");
         UpdateDepthIndicator();
         RebuildIndexPaletteUI();
+        UpdateModeMenu();
     }
 
     uint8_t* MainWindow::DisplayData()
