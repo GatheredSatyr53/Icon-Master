@@ -20,6 +20,9 @@ namespace IconMaster
         Int32 PaletteSize{ get; };
         Windows.UI.Color PaletteColor(Int32 index);
         void SetPaletteEntry(Int32 index, Windows.UI.Color value);
+        // Switch to an indexed mode with an explicit palette (e.g. median-cut from the
+        // image); pass an empty vector to use the built-in default palette instead.
+        void SetIndexedPalette(Int32 mode, Windows.Foundation.Collections.IVectorView<Windows.UI.Color> colors);
 
         Windows.UI.Color GetPixel(Int32 x, Int32 y);
         void SetPixel(Int32 x, Int32 y, Windows.UI.Color color);

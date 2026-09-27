@@ -108,6 +108,7 @@ namespace winrt::IconMaster::implementation
         winrt::Windows::Foundation::IAsyncAction WriteRetinaSiblingAsync(winrt::Windows::Storage::StorageFile file, winrt::guid encoderId); // @2x companion at double resolution
         winrt::Windows::Foundation::IAsyncAction WriteByKindAsync(winrt::Windows::Storage::StorageFile file, SaveKind kind, winrt::guid encoderId); // dispatch to the right writer
         std::vector<uint8_t> CompositeToBytes(int32_t w, int32_t h) const; // flatten visible layers to straight BGRA8
+        static std::vector<winrt::Windows::UI::Color> MedianCutPalette(std::vector<uint8_t> const& bgra, int32_t count); // build up to `count` colours from an image via median cut
         static winrt::hstring FileStemIdentifier(winrt::hstring const& fileName); // sanitise a filename stem into a C identifier for XPM/XBM
         winrt::Windows::Foundation::IAsyncAction WriteIcoAsync(winrt::Windows::Storage::StorageFile file); // multi-size ICO
         winrt::Windows::Foundation::IAsyncAction LoadImageFileAsync(winrt::Windows::Storage::StorageFile file); // decode into a new document

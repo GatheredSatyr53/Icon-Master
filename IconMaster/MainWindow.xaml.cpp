@@ -20,6 +20,7 @@
 #include <shobjidl_core.h>
 #include <robuffer.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <span>
 #include <string>
@@ -2253,6 +2254,75 @@ namespace winrt::IconMaster::implementation
         ModeIndexedItem().IsChecked(!rgb);
     }
 
+    std::vector<winrt::Windows::UI::Color> MainWindow::MedianCutPalette(std::vector<uint8_t> const& bgra, int32_t count)
+    {
+        using Color = winrt::Windows::UI::Color;
+
+        // Gather the opaque colours as RGB triples (transparency isn't palette-indexed).
+        std::vector<std::array<uint8_t, 3>> pts;
+        pts.reserve(bgra.size() / 4);
+        for (size_t i = 0; i + 3 < bgra.size(); i += 4)
+        {
+            if (bgra[i + 3] >= 128)
+            {
+                pts.push_back({ bgra[i + 2], bgra[i + 1], bgra[i + 0] }); // R, G, B
+            }
+        }
+
+        std::vector<Color> palette;
+        if (pts.empty() || count < 1)
+        {
+            return palette; // caller falls back to the default palette
+        }
+
+        std::vector<std::vector<std::array<uint8_t, 3>>> boxes;
+        boxes.push_back(std::move(pts));
+
+        // Repeatedly split the box with the widest single-channel spread at its median.
+        while (static_cast<int32_t>(boxes.size()) < count)
+        {
+            int32_t target = -1;
+            int32_t bestRange = 0;
+            int32_t bestChan = 0;
+            for (int32_t b = 0; b < static_cast<int32_t>(boxes.size()); ++b)
+            {
+                auto const& box = boxes[static_cast<size_t>(b)];
+                if (box.size() < 2) { continue; }
+                for (int32_t ch = 0; ch < 3; ++ch)
+                {
+                    uint8_t mn = 255, mx = 0;
+                    for (auto const& p : box) { mn = std::min(mn, p[static_cast<size_t>(ch)]); mx = std::max(mx, p[static_cast<size_t>(ch)]); }
+                    const int32_t range = mx - mn;
+                    if (range > bestRange) { bestRange = range; target = b; bestChan = ch; }
+                }
+            }
+            if (target < 0 || bestRange == 0) { break; } // nothing left worth splitting
+
+            auto& box = boxes[static_cast<size_t>(target)];
+            std::sort(box.begin(), box.end(),
+                [bestChan](auto const& a, auto const& b) { return a[static_cast<size_t>(bestChan)] < b[static_cast<size_t>(bestChan)]; });
+            const size_t mid = box.size() / 2;
+            std::vector<std::array<uint8_t, 3>> hi(box.begin() + mid, box.end());
+            box.erase(box.begin() + mid, box.end());
+            boxes.push_back(std::move(hi));
+        }
+
+        // Average each box to a single palette entry.
+        palette.reserve(boxes.size());
+        for (auto const& box : boxes)
+        {
+            if (box.empty()) { continue; }
+            uint64_t r = 0, g = 0, bl = 0;
+            for (auto const& p : box) { r += p[0]; g += p[1]; bl += p[2]; }
+            const auto n = static_cast<uint64_t>(box.size());
+            palette.push_back(Color{ 0xFF,
+                static_cast<uint8_t>(r / n),
+                static_cast<uint8_t>(g / n),
+                static_cast<uint8_t>(bl / n) });
+        }
+        return palette;
+    }
+
     void MainWindow::SetDocumentMode(int32_t mode)
     {
         if (doc().context == nullptr || doc().colorMode == mode)
@@ -2269,9 +2339,27 @@ namespace winrt::IconMaster::implementation
             doc().lastIndexedMode = doc().colorMode;
         }
         doc().colorMode = mode;
-        for (auto& layer : doc().layers)
+        if (mode == 1 || mode == 4 || mode == 8)
         {
-            layer.context.ColorMode(mode);
+            // Build the palette from the image's actual colours (median cut) before
+            // quantizing, then apply it to every layer so they share one palette.
+            const int32_t w = doc().context.PixelWidth();
+            const int32_t h = doc().context.PixelHeight();
+            const auto pal = MedianCutPalette(CompositeToBytes(w, h), 1 << mode);
+            winrt::Windows::Foundation::Collections::IVector<winrt::Windows::UI::Color> iv =
+                winrt::single_threaded_vector<winrt::Windows::UI::Color>(std::vector(pal));
+            const auto view = iv.GetView();
+            for (auto& layer : doc().layers)
+            {
+                layer.context.SetIndexedPalette(mode, view);
+            }
+        }
+        else
+        {
+            for (auto& layer : doc().layers)
+            {
+                layer.context.ColorMode(mode);
+            }
         }
         RebuildDisplay(); // refreshes the badge, palettes, and canvas
     }
@@ -2385,7 +2473,19 @@ namespace winrt::IconMaster::implementation
                 context.SetPixel(static_cast<int32_t>(x), static_cast<int32_t>(y), c);
             }
         }
-        context.ColorMode(img->colorMode);
+        const int32_t mode = img->colorMode;
+        if (mode == 1 || mode == 4 || mode == 8)
+        {
+            // Derive the palette from the file's own colours (median cut).
+            const auto pal = MedianCutPalette(img->bgra, 1 << mode);
+            winrt::Windows::Foundation::Collections::IVector<winrt::Windows::UI::Color> iv =
+                winrt::single_threaded_vector<winrt::Windows::UI::Color>(std::vector(pal));
+            context.SetIndexedPalette(mode, iv.GetView());
+        }
+        else
+        {
+            context.ColorMode(mode);
+        }
 
         const auto fit = static_cast<int32_t>(512u / std::max(w, h));
         AddDocument(context, file.Name(), fit);
