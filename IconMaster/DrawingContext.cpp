@@ -5,6 +5,7 @@
 #endif
 
 #include <algorithm>
+#include <winrt/Windows.Foundation.Collections.h>
 
 // Note: the class has a member named `Color` (the current-colour property), which
 // shadows the type name inside member scope, so the type is spelled out in full here.
@@ -62,6 +63,26 @@ namespace winrt::IconMaster::implementation
             m_palette.clear();
             m_indices.clear();
         }
+    }
+
+    void DrawingContext::SetIndexedPalette(int32_t mode, winrt::Windows::Foundation::Collections::IVectorView<winrt::Windows::UI::Color> const& colors)
+    {
+        m_mode = mode;
+        m_palette.clear();
+        if (colors != nullptr && colors.Size() > 0)
+        {
+            for (auto const& c : colors)
+            {
+                // Palette entries are opaque; pixel alpha carries transparency.
+                m_palette.push_back(winrt::Windows::UI::Color{ 0xFF, c.R, c.G, c.B });
+            }
+        }
+        else
+        {
+            BuildDefaultPalette();
+        }
+        m_indices.assign(static_cast<size_t>(m_width) * m_height, 0);
+        ReindexPixels();
     }
 
     void DrawingContext::BuildDefaultPalette()

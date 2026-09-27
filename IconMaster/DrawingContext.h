@@ -22,6 +22,7 @@ namespace winrt::IconMaster::implementation
         int32_t PaletteSize() const noexcept { return static_cast<int32_t>(m_palette.size()); }
         winrt::Windows::UI::Color PaletteColor(int32_t index) const;
         void SetPaletteEntry(int32_t index, winrt::Windows::UI::Color const& value);
+        void SetIndexedPalette(int32_t mode, winrt::Windows::Foundation::Collections::IVectorView<winrt::Windows::UI::Color> const& colors);
 
         winrt::Windows::UI::Color GetPixel(int32_t x, int32_t y) const;
         void SetPixel(int32_t x, int32_t y, winrt::Windows::UI::Color const& color);
